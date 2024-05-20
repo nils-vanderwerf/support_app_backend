@@ -1,0 +1,19 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  user_id: 1
+  client_id: 1
+  appointment_id: 1
+  date: 2024-05-20 20:15:07
+  activities: MyText
+  observations: MyText
+  follow_up_actions: MyText
+
+two:
+  user_id: 1
+  client_id: 1
+  appointment_id: 1
+  date: 2024-05-20 20:15:07
+  activities: MyText
+  observations: MyText
+  follow_up_actions: MyText
