@@ -11,5 +11,6 @@ Rails.application.routes.draw do
     resources :clients
     resources :appointments
     resources :visit_reports
+    resources :support_workers
   end
 end
