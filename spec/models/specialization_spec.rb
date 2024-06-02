@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SpecializationTest < ActiveSupport::TestCase
+class SpecializationSpec < ActiveSupport::TestCase
   # test "the truth" do
   #   assert true
   # end
