@@ -27,4 +27,8 @@ module SupportApp
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use ActionDispatch::Session::CookieStore, key: '_namespace_key'
   end
+
+  config.generators do |g|
+    g.test_framework :rspec
+  end
 end
