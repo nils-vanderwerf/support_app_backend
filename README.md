@@ -1,24 +1,47 @@
-# README
+# Support App — Backend
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+Rails API for a portfolio project inspired by [Mable](https://mable.com.au), a platform that connects people living with disability to independent support workers.
 
-Things you may want to cover:
+The frontend React app lives in a separate repository: [support_app_frontend](https://github.com/nils-vanderwerf/support_app_frontend).
 
-* Ruby version
+## What it does
 
-* System dependencies
+- REST API consumed by the React frontend
+- Session-based authentication using Devise and Rails session cookies
+- Role-based access control — clients and support workers have different permissions
+- Appointment booking between clients and support workers
+- CSRF protection for non-GET requests
 
-* Configuration
+## Tech stack
 
-* Database creation
+- **Ruby on Rails** (API mode with session support)
+- **Devise** for authentication
+- **SQLite** for development
+- **RSpec** for request specs
 
-* Database initialization
+## Backend concepts practised
 
-* How to run the test suite
+- MVC architecture
+- RESTful API design
+- ActiveRecord associations and database design
+- ActiveRecord transactions for data integrity
+- Role-based access control with a shared `RoleRegistry` concern
+- Session-based authentication (cookies, CSRF)
+- Encapsulation and modular design
+- RSpec request specs with context blocks
 
-* Services (job queues, cache servers, search engines, etc.)
+## Running the app
 
-* Deployment instructions
+```bash
+bundle install
+rails db:create db:migrate
+rackup -p 9292
+```
 
-* ...
+API runs on [http://localhost:9292](http://localhost:9292).
+
+## Running tests
+
+```bash
+bundle exec rspec
+```

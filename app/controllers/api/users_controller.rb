@@ -1,6 +1,6 @@
 module Api
   class UsersController < ApplicationController
-
+    include RoleRegistry 
     def create
       user = User.new(user_params)
       if user.save
@@ -13,7 +13,7 @@ module Api
     private
 
     def user_params
-      params.require(:user).permit(:first_name, :last_name, :middle_name, :email, :password)
+      params.require(:user).permit(:email, :password)
     end
   end
 end
