@@ -7,5 +7,6 @@ class User < ApplicationRecord
   enum role: { client: 0, support_worker: 1, both: 2 }
 
   validates :email, presence: true, uniqueness: true
-  validates :password, presence: true, length: { minimum: 1 }
+  validates :password, length: { minimum: 1 }, if: -> { password.present? }
+  validates :password, presence: true, on: :create
 end
