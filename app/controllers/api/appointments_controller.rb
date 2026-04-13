@@ -3,6 +3,7 @@ module Api
     def create
       return render json: { errors: 'Must be logged in to book appointments' }, status: :unauthorized unless current_user
       return render json: { errors: 'Only clients and support workers can book appointments' }, status: :forbidden unless current_user.client || current_user.support_worker
+
       @appointment = Appointment.new(appointment_params)
       if @appointment.save
         render json: @appointment
@@ -13,9 +14,9 @@ module Api
 
     def index
       appointments = if current_user.client
-        Appointment.active.where(client_id: current_user.client.id)
+        Appointment.where(client_id: current_user.client.id)
       elsif current_user.support_worker
-        Appointment.active.where(support_worker_id: current_user.support_worker.id)
+        Appointment.where(support_worker_id: current_user.support_worker.id)
       else
         []
       end
@@ -33,7 +34,7 @@ module Api
 
     def destroy
       appointment = Appointment.find(params[:id])
-      appointment.update(deleted_at: Time.current)
+      appointment.destroy
       render json: { message: 'Appointment deleted' }, status: :ok
     end
 
@@ -44,4 +45,3 @@ module Api
     end
   end
 end
-

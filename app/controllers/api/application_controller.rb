@@ -8,6 +8,10 @@ module Api
       render json: { csrf_token: form_authenticity_token }
     end
 
+    def current_user
+      User.find_by(id: session[:user_id])
+    end
+
     private
 
     def set_csrf_cookie

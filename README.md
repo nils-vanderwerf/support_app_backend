@@ -9,7 +9,7 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - REST API consumed by the React frontend
 - Session-based authentication using Devise and Rails session cookies
 - Role-based access control — clients and support workers have different permissions
-- Appointment booking between clients and support workers
+- Appointment booking between clients and support workers (admin roles are not currently supported)
 - CSRF protection for non-GET requests
 
 ## Tech stack
