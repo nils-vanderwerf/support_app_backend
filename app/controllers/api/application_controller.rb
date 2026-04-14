@@ -1,31 +1,21 @@
 module Api
   class ApplicationController < ActionController::Base
-    protect_from_forgery unless: -> { Rails.env.development? }
-
-    before_action :set_csrf_cookie
+    skip_before_action :verify_authenticity_token
 
     def csrf_token
-      render json: { csrf_token: form_authenticity_token }
+      render json: { csrf_token: 'not-used' }
     end
 
     def current_user
+      # Token-based auth (Authorization: Bearer <token>) for cross-domain requests
+      if (token = request.headers['Authorization']&.sub(/\ABearer /, ''))
+        user_id = Rails.application.message_verifier(:auth).verify(token)
+        return User.find_by(id: user_id)
+      end
+      # Fall back to session for same-domain / local dev
       User.find_by(id: session[:user_id])
-    end
-
-    private
-
-    def set_csrf_cookie
-      token = form_authenticity_token
-      cookies['CSRF-TOKEN'] = token if protect_against_forgery?
-      Rails.logger.debug "CSRF Token Set: #{token}"
-    end
-
-    protected
-
-    def verified_request?
-      token = request.headers['X-CSRF-Token']
-      Rails.logger.debug "CSRF Token Received: #{token}"
-      super || valid_authenticity_token?(session, token)
+    rescue ActiveSupport::MessageVerifier::InvalidSignature
+      nil
     end
   end
 end

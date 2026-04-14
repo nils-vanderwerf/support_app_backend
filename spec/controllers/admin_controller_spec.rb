@@ -1,10 +1,10 @@
 require 'rails_helper'
 
 RSpec.describe "AdminController", type: :request do
-  let(:admin_user) { User.create!(email: 'admin@test.com', password: 'password123', first_name: 'Admin', last_name: 'User', is_admin: true) }
+  let(:admin_user) { User.create!(email: 'admin@test.com', password: 'password123', first_name: 'Admin', last_name: 'User', role: :admin) }
   let(:plain_user)  { User.create!(email: 'plain@test.com', password: 'password123', first_name: 'Jan', last_name: 'Doe') }
 
-  let(:other_admin_user) { User.create!(email: 'admin2@test.com', password: 'password123', first_name: 'Other', last_name: 'Admin', is_admin: true) }
+  let(:other_admin_user) { User.create!(email: 'admin2@test.com', password: 'password123', first_name: 'Other', last_name: 'Admin', role: :admin) }
 
   let(:sw_user) { User.create!(email: 'sw@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown') }
   let(:approved_worker) do
@@ -57,12 +57,11 @@ RSpec.describe "AdminController", type: :request do
 
     context 'when logged in as admin' do
       before do
-        approved_worker; other_approved_worker; pending_worker
-        appointment_with_admin_worker; appointment_with_other_worker
+        approved_worker; other_approved_worker; pending_worker; client
         login_as(admin_user)
       end
 
-      it 'scopes all counts to this admin' do
+      it 'counts only workers this admin approved' do
         get '/api/admin/stats'
         expect(response).to have_http_status(:ok)
         body = JSON.parse(response.body)

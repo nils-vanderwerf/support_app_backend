@@ -9,6 +9,7 @@ Rails.application.routes.draw do
     get "up" => "rails/health#show", as: :rails_health_check
     get 'user', to: 'sessions#logged_in_user'
     post 'login', to: 'sessions#create'
+    delete 'logout', to: 'sessions#destroy'
 
     # Defines the root path route ("/")
     # root "posts#index"
@@ -16,6 +17,8 @@ Rails.application.routes.draw do
     resources :clients
     resources :appointments
     resources :visit_reports
+    post 'ai_booking/chat', to: 'ai_booking#chat'
+    get 'dashboard', to: 'dashboard#show'
     resources :support_workers
   end
 end

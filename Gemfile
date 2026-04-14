@@ -10,8 +10,7 @@ gem 'rack-cors'
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
 
-# Use sqlite3 as the database for Active Record
-gem "sqlite3", "~> 1.4"
+gem "pg", "~> 1.1"
 gem 'devise'
 gem 'devise_token_auth'
 
@@ -49,7 +48,7 @@ gem "bootsnap", require: false
 # gem "image_processing", "~> 1.2"
 
 group :development, :test do
-  # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
+  gem "sqlite3", "~> 1.4"
   gem "debug"
 end
 
