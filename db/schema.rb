@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_11_054746) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_20_235609) do
   create_table "appointments", force: :cascade do |t|
     t.datetime "date"
     t.integer "duration"
@@ -28,18 +28,21 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_054746) do
     t.string "first_name"
     t.integer "age"
     t.string "gender"
-    t.string "address"
     t.string "phone"
     t.text "health_conditions"
     t.text "medication"
     t.text "allergies"
-    t.string "emergency_contact_name"
     t.string "emergency_contact_phone"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id"
     t.string "last_name"
     t.string "middle_name"
+    t.text "bio"
+    t.string "location"
+    t.string "email"
+    t.string "emergency_contact_first_name"
+    t.string "emergency_contact_last_name"
     t.index ["user_id"], name: "index_clients_on_user_id"
   end
 
@@ -73,12 +76,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_054746) do
     t.string "emergency_contact_last_name"
     t.string "emergency_contact_phone"
     t.string "gender"
-    t.string "status", default: "pending", null: false
-    t.string "police_check_number"
-    t.string "wwcc_number"
-    t.text "check_notes"
-    t.string "agent_recommendation"
-    t.integer "approved_by_id"
     t.index ["user_id"], name: "index_support_workers_on_user_id"
   end
 
