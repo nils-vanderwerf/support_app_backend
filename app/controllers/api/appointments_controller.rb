@@ -17,7 +17,7 @@ module Api
       else
         []
       end
-      render json: appointments
+      render json: appointments, include: [:client, :support_worker]
     end
     
     def update
