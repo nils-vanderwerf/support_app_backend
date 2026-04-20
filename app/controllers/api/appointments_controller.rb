@@ -10,8 +10,14 @@ module Api
     end
 
     def index
-      appointments = Appointment.all
-      render json: appointments
+      appointments = if current_user.client
+        Appointment.where(client_id: current_user.client.id)
+      elsif current_user.support_worker
+        Appointment.where(support_worker_id: current_user.support_worker.id)
+      else
+        []
+      end
+      render json: appointments, include: [:client, :support_worker]
     end
     
     def update
