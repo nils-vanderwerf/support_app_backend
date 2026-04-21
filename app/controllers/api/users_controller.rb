@@ -9,13 +9,15 @@ module Api
           Client.create!(client_params.merge(user_id: user.id))
         elsif params[:role] == "support_worker"
           SupportWorker.create!(support_worker_params.merge(user_id: user.id))
+        else
+          raise ActiveRecord::RecordInvalid.new(user), "Invalid role"
         end
       end
       render json: { message: 'User created successfully', user: user }, status: :created
     rescue ActiveRecord::RecordInvalid => e
       render json: { errors: e.message }, status: :unprocessable_entity
     end
-
+  
     private
 
     def user_params

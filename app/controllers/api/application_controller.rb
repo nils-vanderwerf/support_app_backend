@@ -1,6 +1,6 @@
 module Api
   class ApplicationController < ActionController::Base
-    protect_from_forgery unless: -> { Rails.env.development? }
+    protect_from_forgery unless: -> { Rails.env.development? || Rails.env.test? }
 
     before_action :set_csrf_cookie
 
