@@ -1,21 +1,20 @@
 module Api
   class UsersController < ApplicationController
+    include RoleRegistry 
 
     def create
       user = User.new(user_params)
       ActiveRecord::Base.transaction do
         user.save!
-        if params[:role] == "client"
-          Client.create!(client_params.merge(user_id: user.id))
-        elsif params[:role] == "support_worker"
-          SupportWorker.create!(support_worker_params.merge(user_id: user.id))
-        else
-          raise ActiveRecord::RecordInvalid.new(user), "Invalid role"
-        end
+        model = ROLE_MODELS[params[:role]]
+        raise ActiveRecord::RecordInvalid.new(user), "Invalid role" unless model
+        model.create!(role_params.merge(user_id: user.id))
       end
       render json: { message: 'User created successfully', user: user }, status: :created
     rescue ActiveRecord::RecordInvalid => e
       render json: { errors: e.message }, status: :unprocessable_entity
+    rescue ActionController::ParameterMissing => e
+      render json: { errors: e.message }, status: :bad_request
     end
   
     private
@@ -32,5 +31,8 @@ module Api
       params.require(:support_worker).permit(:first_name, :last_name, :middle_name, :age, :gender, :phone, :email, :location, :bio, :experience, :availability, :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone)
     end
 
+    def role_params
+      send("#{ROLE_MODELS[params[:role]].name.underscore}_params")
+    end
   end
 end
