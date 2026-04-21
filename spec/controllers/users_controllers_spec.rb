@@ -62,4 +62,8 @@ RSpec.describe "POST /api/users", type: :request do
     post api_users_path, params: invalid_role_params
     expect(response).to have_http_status(:unprocessable_entity)
   end
+  it "returns bad request if user params are missing" do
+    post api_users_path, params: { role: 'client', client: { age: 30 } }
+    expect(response).to have_http_status(:bad_request)
+  end
 end
