@@ -1,12 +1,14 @@
 module Api
   class AppointmentsController < ApplicationController
     def create
+      return render json: { errors: 'Only clients can book appointments' }, status: :forbidden unless current_user&.client
+
       @appointment = Appointment.new(appointment_params)
       if @appointment.save
         render json: @appointment
       else
         render json: { errors: @appointment.errors.full_messages }, status: :unprocessable_entity
-      end 
+      end
     end
 
     def index
