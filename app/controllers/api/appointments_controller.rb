@@ -3,7 +3,6 @@ module Api
     def create
       return render json: { errors: 'Must be logged in to book appointments' }, status: :unauthorized unless current_user
       return render json: { errors: 'Only clients and support workers can book appointments' }, status: :forbidden unless current_user.client || current_user.support_worker
-
       @appointment = Appointment.new(appointment_params)
       if @appointment.save
         render json: @appointment
