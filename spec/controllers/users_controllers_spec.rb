@@ -65,5 +65,6 @@ RSpec.describe "POST /api/users", type: :request do
   it "returns bad request if user params are missing" do
     post api_users_path, params: { role: 'client', client: { age: 30 } }
     expect(response).to have_http_status(:bad_request)
+    expect(response).to have_http_status(:bad_request)
   end
 end

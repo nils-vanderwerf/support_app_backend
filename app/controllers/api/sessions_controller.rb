@@ -23,7 +23,7 @@ module Api
             support_worker: current_user.support_worker
           }
       else
-        render json: { error: "You're not authenticated to view this page" }, status: :unauthorized
+        render json: { error: "You're not authorized to view this page" }, status: :unauthorized
       end
     end
   end

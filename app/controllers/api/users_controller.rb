@@ -1,7 +1,6 @@
 module Api
   class UsersController < ApplicationController
     include RoleRegistry 
-
     def create
       user = User.new(user_params)
       ActiveRecord::Base.transaction do
