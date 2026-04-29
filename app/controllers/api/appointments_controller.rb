@@ -13,9 +13,9 @@ module Api
 
     def index
       appointments = if current_user.client
-        Appointment.where(client_id: current_user.client.id)
+        Appointment.active.where(client_id: current_user.client.id)
       elsif current_user.support_worker
-        Appointment.where(support_worker_id: current_user.support_worker.id)
+        Appointment.active.where(support_worker_id: current_user.support_worker.id)
       else
         []
       end
@@ -33,7 +33,7 @@ module Api
 
     def destroy
       appointment = Appointment.find(params[:id])
-      appointment.destroy
+      appointment.update(deleted_at: Time.current)
       render json: { message: 'Appointment deleted' }, status: :ok
     end
 
