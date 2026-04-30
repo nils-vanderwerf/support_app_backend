@@ -5,6 +5,8 @@ RSpec.describe "AppointmentsController", type: :request do
     let(:client) { Client.create!(user_id: client_user.id, first_name: client_user.first_name, last_name: client_user.last_name) }
     let(:support_worker_user) { User.create!(email: 'test2@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown', role: 'support_worker') }
     let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', age: 35, location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name) }
+    let(:appointment_params) { { appointment: { date: "2026-04-30", duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id } } }
+    let(:invalid_user) { User.create!(email: 'invalid@test.com', first_name: 'Invalid', last_name: 'User', password: 'password123') }
     let(:active_client_appointments) { 
       3.times.map {
         Appointment.create(deleted_at: nil, client_id: client.id, support_worker_id: support_worker.id )
@@ -39,9 +41,48 @@ RSpec.describe "AppointmentsController", type: :request do
           soft_deleted_support_worker_appointments
           post api_login_path, params: { email: support_worker_user.email, password: 'password123' }
       end
-      it 'returns the clients appointments' do
+      it 'returns the support workers appointments' do
         get api_appointments_path
         expect(JSON.parse(response.body).count).to eq(3)
+      end
+    end
+    describe "POST /api/appointments" do
+      context 'the client is logged in with valid params' do
+        before do
+          post api_login_path, params: { email: client_user.email, password: 'password123' }
+        end
+        it 'successfully creates an appointment' do
+          post api_appointments_path, params: appointment_params
+          expect(response).to have_http_status(:ok)
+          expect(Appointment.count).to eq(1)
+        end
+      end
+      context 'the support worker is logged in with valid params' do
+        before do
+          post api_login_path, params: { email: support_worker_user.email, password: 'password123' }
+        end
+        it 'successfully creates an appointment' do
+          post api_appointments_path, params: appointment_params
+          expect(response).to have_http_status(:ok)
+          expect(Appointment.count).to eq(1)
+        end
+      end
+      context "a user is not logged in and tries to create an appointment" do
+        it 'returns unauthorized' do
+          post api_appointments_path, params: appointment_params
+          expect(response).to have_http_status(:unauthorized)
+          expect(Appointment.count).to eq(0)
+        end
+      end
+      context "a user does not have an associated client or support worker and tries to create an appointment" do
+        before do
+          post api_login_path, params: { email: invalid_user.email, password: 'password123' }
+        end
+        it 'returns unauthorized' do
+          post api_appointments_path, params: appointment_params
+          expect(response).to have_http_status(:forbidden)
+          expect(Appointment.count).to eq(0)
+        end
       end
     end
 end
