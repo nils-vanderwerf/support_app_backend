@@ -11,14 +11,11 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 ## What it does
 
 - REST API consumed by the React frontend
-- Token-based authentication — signed token returned on login, sent as `Authorization: Bearer` header
-- Role-based access control — clients, support workers, and admins each have different permissions
-- Full appointment lifecycle: booking → invitation → approval/decline → confirmation message in chat
-- Messaging and conversation system between clients and support workers with AES-256-GCM encryption
-- **AI booking agent** — multi-step Claude tool-use loop that matches clients with support workers
-- **AI vetting agent** — conversational interview that collects and validates support worker credentials before flagging for admin review
-- **Admin dashboard API** — scoped stats, worker lists, and appointment management
-- **Transactional email** via Resend — password reset and vetting application notifications
+- Session-based authentication using Devise and Rails session cookies
+- Role-based access control — clients and support workers have different permissions
+- Appointment booking between clients and support workers (admin roles are not currently supported)
+- CSRF protection for non-GET requests
+- **AI booking agent** — a `POST /api/ai_booking/chat` endpoint that runs a multi-step Claude tool-use loop and returns a plain text reply to the frontend
 
 ## Tech stack
 
@@ -29,59 +26,19 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - **Claude API** (Anthropic) for AI booking and vetting agents
 - **Resend** for transactional email (SMTP)
 - **RSpec** for request specs
-- **Docker** — deployed on [Render](https://render.com)
-
-## Features
-
-### Authentication & access control
-- Token-based auth — `Authorization: Bearer <token>` on every request; no session cookies or CSRF
-- Status-gated access: pending and rejected workers are blocked from client data, appointments, and AI features at the controller level
-- Role-scoped browsing: support workers can only browse clients, and clients can only browse support workers
-- Admin-only endpoints protected by `require_admin` before action
-
-### Appointment system
-- Full CRUD with soft delete (`deleted_at`)
-- Pending → approved/declined lifecycle with status scoping (`Appointment.active`, `.pending`, `.approved`)
-- System messages posted to the conversation thread on approve/decline, formatted in the user's local timezone
-
-### Messaging
-- Conversation threads between client/worker pairs
-- All message content encrypted before storage — server stores only ciphertext prefixed `ENC:`
-- System messages (prefixed `[SYS]`) rendered differently in the UI
-
-### AI booking agent (`POST /api/ai_booking/chat`)
-- Runs a multi-step tool-use loop in a single HTTP request
-- Tools: `get_support_workers`, `get_clients`, `open_conversation`
-- Blocked for pending/rejected workers
-
-### AI vetting agent (`POST /api/vetting/chat`)
-- Collects police check number, WWCC number, and expiry dates
-- Validates reference numbers (minimum 6 characters, must contain a digit — rejects plain words)
-- Extracts structured data and saves to the `support_workers` record on completion
-- Sets status to `pending` and notifies admin via email
-
-### Password reset
-- `POST /api/password_resets` — generates a Devise reset token and emails a link via Resend
-- `PATCH /api/password_resets/:token` — validates token and updates password
-- Reset link points to `FRONTEND_URL/reset-password/:token`
-
-### Admin dashboard
-- `GET /api/admin/stats` — approved workers, pending applicants, total clients, appointments this week
-- `GET /api/admin/applications` — pending applicants across the platform
-- `PATCH /api/admin/applications/:id/approve` — sets status to `approved`, sends approval message to worker's Suppova thread
-- `PATCH /api/admin/applications/:id/reject` — notifies worker with reason and reapply instructions
-- `GET /api/admin/messages` / `POST /api/admin/messages/:id/reply` — admin messaging with support workers
+- **anthropic gem** + **dotenv-rails** for the AI booking agent
 
 ## Backend concepts practised
 
-- MVC architecture and RESTful API design
-- ActiveRecord associations, scopes, and database design
-- Role-based and status-based access control
-- Token-based authentication without session cookies (cross-domain compatible)
-- Timezone-aware date formatting with `in_time_zone`
-- RSpec request specs with multi-actor scenarios
-- Agentic AI patterns — tool use, multi-step loops, prompt engineering, structured data extraction
-- Docker multi-stage builds for production deployment
+- MVC architecture
+- RESTful API design
+- ActiveRecord associations and database design
+- ActiveRecord transactions for data integrity
+- Role-based access control with a shared `RoleRegistry` concern
+- Session-based authentication (cookies, CSRF)
+- Encapsulation and modular design
+- RSpec request specs with context blocks
+- Agentic AI patterns — tool use, multi-step loops, and prompt engineering with the Claude API
 
 ## Running locally
 
@@ -92,6 +49,14 @@ ANTHROPIC_API_KEY=sk-ant-...
 RESEND_API_KEY=re_...
 FRONTEND_URL=http://localhost:3000
 SECRET_KEY_BASE=<any long random string for local dev>
+```
+
+Then:
+
+Add your Anthropic API key to a `.env` file in the project root (already gitignored):
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Then:

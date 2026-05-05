@@ -1,0 +1,239 @@
+module Api
+  class AiBookingController < ApplicationController
+    def chat
+      return render json: { error: 'Must be logged in' }, status: :unauthorized unless current_user
+
+      profile = current_user.client || current_user.support_worker
+      return render json: { error: 'No profile found' }, status: :forbidden unless profile
+
+      is_client = current_user.client.present?
+      messages  = params[:messages].map { |m| { role: m[:role], content: m[:content] } }
+      timezone  = params[:timezone].presence || 'UTC'
+
+      anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
+
+      loop do
+        response = anthropic.messages(parameters: {
+          model:     'claude-sonnet-4-6',
+          max_tokens: 1024,
+          system:    system_prompt(profile, is_client, timezone),
+          messages:  messages,
+          tools:     booking_tools(is_client, timezone)
+        })
+
+        tool_uses = response['content'].select { |b| b['type'] == 'tool_use' }
+
+        if tool_uses.any?
+          tool_results = tool_uses.map { |tu| execute_tool(tu, profile, is_client) }
+          messages = messages + [
+            { role: 'assistant', content: response['content'] },
+            { role: 'user',      content: tool_results }
+          ]
+        else
+          text = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '')
+          return render json: { message: text }
+        end
+      end
+    end
+
+    private
+
+    def system_prompt(profile, is_client, timezone)
+      if is_client
+        client_location    = profile.location.presence || 'Not specified'
+        client_needs       = profile.health_conditions.presence || 'None recorded'
+        <<~PROMPT
+          You are a friendly AI booking assistant for a disability support platform.
+          You help clients find and book appointments with support workers.
+
+          The client you are assisting:
+          - Name: #{profile.first_name} #{profile.last_name}
+          - Location: #{client_location}
+          - Health conditions / needs: #{client_needs}
+          - Medication: #{profile.medication.presence || 'None recorded'}
+          - Allergies: #{profile.allergies.presence || 'None recorded'}
+
+          When finding and recommending support workers, you MUST apply these two checks:
+
+          1. DISTANCE CHECK — The client is in #{client_location}.
+             Use your geographic knowledge to assess distance.
+             If a worker is more than ~100km away (e.g. a different city or state), flag this clearly:
+             tell the client the worker is too far away and skip or deprioritise them.
+             Only recommend local or nearby workers unless the client explicitly asks for remote options.
+
+          2. SPECIALIZATION FIT — The client's needs are: #{client_needs}.
+             Only recommend workers whose specializations genuinely match these needs.
+             If a worker's specializations are unrelated, say so and move on.
+             If no workers are a good fit, say so honestly rather than forcing a recommendation.
+
+          When presenting options, always state: why each worker is a good location and specialization match.
+          If you push back on a worker due to distance or poor fit, briefly explain why.
+
+          Workflow:
+          1. Understand what the client needs (clarify if vague)
+          2. Call get_support_workers to find candidates
+          3. Apply distance and specialization checks — only present suitable workers
+          4. Once the client selects a worker, call open_conversation
+          5. Let them know they can chat and send an invitation from the conversation
+
+          Be warm, concise and professional. Today's date is #{Date.today}.
+          The client's timezone is #{timezone}. Always include the UTC offset in the ISO 8601 datetime.
+        PROMPT
+      else
+        sw_location        = profile.location.presence || 'Not specified'
+        sw_specializations = profile.specializations.map(&:name).join(', ').presence || 'None recorded'
+        <<~PROMPT
+          You are a friendly AI booking assistant for a disability support platform.
+          You help support workers find and book appointments with clients.
+
+          The support worker you are assisting:
+          - Name: #{profile.first_name} #{profile.last_name}
+          - Location: #{sw_location}
+          - Specializations: #{sw_specializations}
+
+          When finding clients, you MUST apply these two checks:
+
+          1. DISTANCE CHECK — You are based in #{sw_location}.
+             Use your geographic knowledge to assess distance.
+             If a client is more than ~100km away, flag this clearly and deprioritise them.
+             Only surface local or nearby clients unless the worker explicitly asks otherwise.
+
+          2. NEEDS FIT — Your specializations are: #{sw_specializations}.
+             Only recommend clients whose health conditions or care needs align with what you do.
+             If a client's needs fall outside your specializations, say so directly.
+
+          Workflow:
+          1. Ask what kind of client or care need they are looking for
+          2. Call get_clients to find candidates
+          3. Apply distance and needs-fit checks — only present suitable clients
+          4. Once they choose a client, call open_conversation
+          5. Let them know they can message and send an invitation from the chat
+
+          Be warm, concise and professional. Today's date is #{Date.today}.
+          The support worker's timezone is #{timezone}. Always include the UTC offset in the ISO 8601 datetime.
+        PROMPT
+      end
+    end
+
+    def booking_tools(is_client, timezone = 'UTC')
+      offset_example = '+10:00'
+      date_desc = "ISO 8601 datetime with UTC offset for the user's timezone (#{timezone}), e.g. 2026-05-12T09:00:00#{offset_example}"
+
+      if is_client
+        [
+          {
+            name: 'get_support_workers',
+            description: 'Fetch available support workers, including name, bio, experience, specializations, availability and location.',
+            input_schema: {
+              type: 'object',
+              properties: {
+                keyword: { type: 'string', description: 'Optional keyword to filter by (searches bio, experience and specializations)' }
+              }
+            }
+          },
+          {
+            name: 'create_appointment',
+            description: 'Book an appointment between the current client and a support worker.',
+            input_schema: {
+              type: 'object',
+              properties: {
+                support_worker_id: { type: 'integer', description: 'ID of the support worker to book' },
+                date:              { type: 'string',  description: date_desc },
+                duration:          { type: 'integer', description: 'Duration in minutes' },
+                location:          { type: 'string',  description: 'Location of the appointment' },
+                notes:             { type: 'string',  description: 'Optional notes' }
+              },
+              required: %w[support_worker_id date duration location]
+            }
+          }
+        ]
+      else
+        [
+          {
+            name: 'get_clients',
+            description: 'Fetch clients, including name, health conditions, location and contact info.',
+            input_schema: {
+              type: 'object',
+              properties: {
+                keyword: { type: 'string', description: 'Optional keyword to filter clients by name or health conditions' }
+              }
+            }
+          },
+          {
+            name: 'create_appointment',
+            description: 'Book an appointment between the current support worker and a client.',
+            input_schema: {
+              type: 'object',
+              properties: {
+                client_id: { type: 'integer', description: 'ID of the client to book' },
+                date:      { type: 'string',  description: date_desc },
+                duration:  { type: 'integer', description: 'Duration in minutes' },
+                location:  { type: 'string',  description: 'Location of the appointment' },
+                notes:     { type: 'string',  description: 'Optional notes' }
+              },
+              required: %w[client_id date duration location]
+            }
+          }
+        ]
+      end
+    end
+
+    def execute_tool(tool_use, profile, is_client)
+      result = case tool_use['name']
+               when 'get_support_workers' then run_get_support_workers(tool_use['input']['keyword'])
+               when 'get_clients'         then run_get_clients(tool_use['input']['keyword'])
+               when 'create_appointment'  then run_create_appointment(tool_use['input'], profile, is_client)
+               else { error: "Unknown tool: #{tool_use['name']}" }
+               end
+
+      { type: 'tool_result', tool_use_id: tool_use['id'], content: result.to_json }
+    end
+
+    def run_get_support_workers(keyword)
+      workers = SupportWorker.includes(:specializations).where(status: 'approved')
+      if keyword.present?
+        kw = keyword.downcase
+        workers = workers.select do |w|
+          [w.bio, w.experience, w.specializations.map(&:name).join(' ')].any? { |f| f.to_s.downcase.include?(kw) }
+        end
+      end
+      workers.map do |w|
+        { id: w.id, name: "#{w.first_name} #{w.last_name}", location: w.location,
+          specializations: w.specializations.map(&:name), bio: w.bio,
+          experience: w.experience, availability: w.availability }
+      end
+    end
+
+    def run_get_clients(keyword)
+      clients = Client.all
+      if keyword.present?
+        kw = keyword.downcase
+        clients = clients.select do |c|
+          ["#{c.first_name} #{c.last_name}", c.health_conditions.to_s].any? { |f| f.downcase.include?(kw) }
+        end
+      end
+      clients.map do |c|
+        { id: c.id, name: "#{c.first_name} #{c.last_name}", location: c.location,
+          health_conditions: c.health_conditions, phone: c.phone }
+      end
+    end
+
+    def run_create_appointment(input, profile, is_client)
+      attrs = {
+        date:     input['date'],
+        duration: input['duration'],
+        location: input['location'],
+        notes:    input['notes']
+      }
+      attrs[:client_id]         = is_client ? profile.id : input['client_id']
+      attrs[:support_worker_id] = is_client ? input['support_worker_id'] : profile.id
+
+      appointment = Appointment.new(attrs)
+      if appointment.save
+        { success: true, appointment_id: appointment.id }
+      else
+        { success: false, errors: appointment.errors.full_messages }
+      end
+    end
+  end
+end
