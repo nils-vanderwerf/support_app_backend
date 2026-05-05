@@ -83,9 +83,8 @@ module Api
       simulated_person = is_client ? conversation.support_worker : conversation.client
       current_person  = is_client ? conversation.client : conversation.support_worker
 
-      pending_appts  = conversation.appointments.select { |a| a.status == 'pending' }
-      approved_appts = conversation.appointments.select { |a| a.status == 'approved' }
-      pending_appt   = pending_appts.first
+      pending_appts = conversation.appointments.select { |a| a.status == 'pending' }
+      pending_appt  = pending_appts.first
 
       history = conversation.messages.order(:created_at).map do |m|
         role = m.sender_type == simulated_role ? 'assistant' : 'user'
@@ -100,7 +99,10 @@ module Api
         history << { role: 'user', content: '[continue]' }
       end
 
-      persona = build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts)
+      # In a continuation flow the last saved message is from the AI — add a silent nudge so the API call is valid
+      history << { role: 'user', content: '[continue]' } if history.last[:role] == 'assistant'
+
+      persona = build_persona(simulated_person, simulated_role, current_person, pending_appts)
 
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
       response = anthropic.messages(parameters: {
@@ -151,32 +153,26 @@ module Api
         pending_appts.each { |a| a.update!(status: 'declined') }
         declined_all = true
       elsif action == 'send_invitation' && parsed_action
-        already_exists = conversation.appointments.where(status: 'pending')
-                                     .any? { |a| a.date.to_s.start_with?(parsed_action['date'].to_s[0..15]) }
-        unless already_exists
-          affected_appt = conversation.appointments.create!(
-            date:             parsed_action['date'],
-            duration:         parsed_action['duration'],
-            location:         parsed_action['location'],
-            notes:            parsed_action['notes'],
-            client_id:        conversation.client_id,
-            support_worker_id: conversation.support_worker_id,
-            status:           'pending',
-            conversation_id:  conversation.id,
-            initiated_by:     simulated_role
-          )
-          appt_time = Time.parse(affected_appt.date.to_s).strftime('%-d %B at %-I:%M %p') rescue affected_appt.date.to_s
-          conversation.messages.create!(
-            content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
-            sender_type: simulated_role,
-            sender_id: simulated_person.id
-          )
-        end
+        affected_appt = conversation.appointments.create!(
+          date:             parsed_action['date'],
+          duration:         parsed_action['duration'],
+          location:         parsed_action['location'],
+          notes:            parsed_action['notes'],
+          client_id:        conversation.client_id,
+          support_worker_id: conversation.support_worker_id,
+          status:           'pending',
+          conversation_id:  conversation.id,
+          initiated_by:     simulated_role
+        )
+        appt_time = Time.parse(affected_appt.date.to_s).strftime('%-d %B at %-I:%M %p') rescue affected_appt.date.to_s
+        conversation.messages.create!(
+          content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
+          sender_type: simulated_role,
+          sender_id: simulated_person.id
+        )
       elsif action == 'send_recurring_invitations' && parsed_action
         dates = Array(parsed_action['dates'])
-        existing_pending = conversation.appointments.where(status: 'pending').pluck(:date).map { |d| d.to_s[0..15] }
-        new_dates = dates.reject { |d| existing_pending.include?(d.to_s[0..15]) }
-        created_appts = new_dates.map do |date|
+        created_appts = dates.map do |date|
           appt = conversation.appointments.create!(
             date:             date,
             duration:         parsed_action['duration'],
@@ -261,7 +257,7 @@ module Api
       'ENC:' + Base64.strict_encode64(iv + ciphertext + tag)
     end
 
-    def build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts = [])
+    def build_persona(simulated_person, simulated_role, current_person, pending_appts)
       name = "#{simulated_person.first_name} #{simulated_person.last_name}"
       other_name = current_person.first_name
 
@@ -315,7 +311,6 @@ module Api
           There #{pending_appts.count == 1 ? 'is' : 'are'} #{pending_appts.count} pending appointment invitation(s):
           #{appt_list}
 
-          Do NOT create any new appointment invitations while invitations are pending.
           If #{other_name} asks you to approve or decline any of these — or you decide to — include a JSON action at the end of your reply:
           - Approve the first pending invitation: {"message": "your reply", "action": "approve"}
           - Decline the first pending invitation: {"message": "your reply", "action": "decline"}
