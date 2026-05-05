@@ -7,7 +7,7 @@ module Api
       else
         SupportWorker.includes(:specializations).where(status: 'approved')
       end
-      render json: workers.as_json(include: :specializations)
+      render json: workers.as_json(include: :specializations, methods: [:age])
     end
 
     def show
@@ -17,14 +17,14 @@ module Api
       unless current_user&.admin? || worker.status == 'approved' || is_own_profile
         return render json: { error: 'Not found' }, status: :not_found
       end
-      render json: worker.as_json(include: :specializations)
+      render json: worker.as_json(include: :specializations, methods: [:age])
     end
 
     def update
       worker = SupportWorker.find(params[:id])
       return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.support_worker&.id == worker.id
       if worker.update(support_worker_params)
-        render json: worker, include: :specializations
+        render json: worker.as_json(include: :specializations, methods: [:age])
       else
         render json: { errors: worker.errors.full_messages }, status: :unprocessable_entity
       end
@@ -34,8 +34,8 @@ module Api
 
     def support_worker_params
       params.require(:support_worker).permit(
-        :first_name, :last_name, :middle_name, :age, :gender, :phone,
-        :location, :bio, :experience, :availability,
+        :first_name, :last_name, :middle_name, :date_of_birth, :gender, :phone,
+        :location, :bio, :experience, :availability, :qualification, :institution, :field_of_study,
         :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone
       )
     end

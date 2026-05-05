@@ -15,8 +15,27 @@ Rails.application.routes.draw do
     # root "posts#index"
     resources :users, only: [:create]
     resources :clients
-    resources :appointments
-    resources :visit_reports
+    resources :appointments do
+      collection do
+        get :pending
+        get :recently_accepted
+        patch :bulk_approve
+      end
+      member do
+        patch :approve
+        patch :decline
+      end
+    end
+    get 'notifications', to: 'notifications#index'
+    resources :conversations, only: [:index, :show, :create] do
+      resources :messages, only: [:index, :create]
+      member do
+        post :ai_respond
+        get :suggest_booking
+      end
+    end
+    post 'visit_reports/draft', to: 'visit_reports#draft'
+    resources :visit_reports, only: [:index, :show, :create]
     post 'ai_booking/chat', to: 'ai_booking#chat'
     resources :support_workers
   end

@@ -9,10 +9,10 @@ RSpec.describe "SupportWorkersController", type: :request do
       last_name: 'Brown',
       email: 'sw@test.com',
       phone: '0400000000',
-      age: 30,
       location: 'Sydney',
       bio: 'Experienced carer',
-      experience: '5 years in disability support'
+      experience: 5,
+      status: 'approved'
     )
   end
 
@@ -24,10 +24,9 @@ RSpec.describe "SupportWorkersController", type: :request do
       last_name: 'Smith',
       email: 'other_sw@test.com',
       phone: '0411111111',
-      age: 28,
       location: 'Melbourne',
       bio: 'Caring professional',
-      experience: '3 years',
+      experience: 3,
       status: 'approved'
     )
   end
@@ -105,6 +104,60 @@ RSpec.describe "SupportWorkersController", type: :request do
 
       it 'returns forbidden' do
         get api_support_worker_path(other_support_worker)
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
+  describe "PATCH /api/support_workers/:id" do
+    before { post api_login_path, params: { email: user.email, password: 'password123' } }
+
+    context 'when the support worker updates their own profile' do
+      it 'updates permitted fields' do
+        patch api_support_worker_path(support_worker), params: {
+          support_worker: { bio: 'Updated bio', experience: 7, location: 'Brisbane' }
+        }
+        expect(response).to have_http_status(:ok)
+        expect(support_worker.reload.bio).to eq('Updated bio')
+        expect(support_worker.reload.experience).to eq(7)
+      end
+
+      it 'updates qualification and institution' do
+        patch api_support_worker_path(support_worker), params: {
+          support_worker: { qualification: "Bachelor's Degree", institution: 'University of Sydney' }
+        }
+        expect(response).to have_http_status(:ok)
+        json = JSON.parse(response.body)
+        expect(json['qualification']).to eq("Bachelor's Degree")
+        expect(json['institution']).to eq('University of Sydney')
+      end
+    end
+
+    context 'when a different support worker tries to update the profile' do
+      before do
+        other_support_worker
+        post api_login_path, params: { email: other_user.email, password: 'password123' }
+      end
+
+      it 'returns forbidden' do
+        patch api_support_worker_path(support_worker), params: {
+          support_worker: { bio: 'Hacked bio' }
+        }
+        expect(response).to have_http_status(:forbidden)
+        expect(support_worker.reload.bio).to eq('Experienced carer')
+      end
+    end
+
+    context 'when a client tries to update a support worker profile' do
+      before do
+        client
+        post api_login_path, params: { email: client_user.email, password: 'password123' }
+      end
+
+      it 'returns forbidden' do
+        patch api_support_worker_path(support_worker), params: {
+          support_worker: { bio: 'Hacked bio' }
+        }
         expect(response).to have_http_status(:forbidden)
       end
     end

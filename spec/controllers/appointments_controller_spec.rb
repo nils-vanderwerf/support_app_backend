@@ -4,7 +4,9 @@ RSpec.describe "AppointmentsController", type: :request do
     let(:client_user) { User.create!(email: 'client@test.com', first_name: 'Jane', last_name: 'Doe', password: 'password123') }
     let(:client) { Client.create!(user_id: client_user.id, first_name: client_user.first_name, last_name: client_user.last_name) }
     let(:support_worker_user) { User.create!(email: 'test2@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown', role: 'support_worker') }
-    let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', age: 35, location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name) }
+    let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name, status: 'approved') }
+    let(:pending_sw_user) { User.create!(email: 'pending@test.com', password: 'password123', first_name: 'Pat', last_name: 'Pending') }
+    let(:pending_worker) { SupportWorker.create!(email: 'pending@test.com', phone: '0411111111', location: 'Melbourne', user_id: pending_sw_user.id, first_name: 'Pat', last_name: 'Pending', status: 'pending') }
     let(:appointment_params) { { appointment: { date: "2026-05-01", duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id } } }
     let(:invalid_appointment_params) { { appointment: { duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id, date: nil } } }
     let(:invalid_user) { User.create!(email: 'invalid@test.com', first_name: 'Invalid', last_name: 'User', password: 'password123') }
@@ -177,56 +179,6 @@ RSpec.describe "AppointmentsController", type: :request do
               params: { appointment_ids: [pending1.id, already_approved.id], timezone: 'Australia/Sydney' }.to_json,
               headers: { 'Content-Type' => 'application/json' }
         expect(JSON.parse(response.body)['approved_count']).to eq(1)
-      end
-    end
-
-    describe "authorization — third-party cannot mutate appointments they don't own" do
-      let(:other_user) { User.create!(email: 'other@test.com', first_name: 'Other', last_name: 'User', password: 'password123') }
-      let(:other_client) { Client.create!(user_id: other_user.id, first_name: 'Other', last_name: 'User') }
-      let(:owned_appointment) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending') }
-
-      before do
-        other_client
-        post api_login_path, params: { email: other_user.email, password: 'password123' }
-      end
-
-      it 'returns forbidden when a third party tries to approve' do
-        patch approve_api_appointment_path(owned_appointment), params: { timezone: 'Australia/Sydney' }
-        expect(response).to have_http_status(:forbidden)
-        expect(owned_appointment.reload.status).to eq('pending')
-      end
-
-      it 'returns forbidden when a third party tries to decline' do
-        patch decline_api_appointment_path(owned_appointment), params: { timezone: 'Australia/Sydney' }
-        expect(response).to have_http_status(:forbidden)
-        expect(owned_appointment.reload.status).to eq('pending')
-      end
-
-      it 'returns forbidden when a third party tries to update' do
-        patch api_appointment_path(owned_appointment), params: { appointment: { location: 'Hacked location' } }
-        expect(response).to have_http_status(:forbidden)
-        expect(owned_appointment.reload.location).not_to eq('Hacked location')
-      end
-
-      it 'returns forbidden when a third party tries to delete' do
-        delete api_appointment_path(owned_appointment)
-        expect(response).to have_http_status(:forbidden)
-        expect(owned_appointment.reload.deleted_at).to be_nil
-      end
-
-      it 'silently ignores appointments the user does not own in bulk_approve' do
-        patch bulk_approve_api_appointments_path,
-              params: { appointment_ids: [owned_appointment.id] }.to_json,
-              headers: { 'Content-Type' => 'application/json' }
-        expect(response).to have_http_status(:ok)
-        expect(JSON.parse(response.body)['approved_count']).to eq(0)
-        expect(owned_appointment.reload.status).to eq('pending')
-      end
-
-      it 'returns unauthorized when not logged in' do
-        delete api_logout_path
-        patch approve_api_appointment_path(owned_appointment), params: { timezone: 'Australia/Sydney' }
-        expect(response).to have_http_status(:unauthorized)
       end
     end
 

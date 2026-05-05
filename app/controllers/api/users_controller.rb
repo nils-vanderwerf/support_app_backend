@@ -24,11 +24,11 @@ module Api
     end
 
     def client_params
-      params.require(:client).permit(:first_name, :last_name, :middle_name, :age, :gender, :phone, :email, :location, :bio, :health_conditions, :medication, :allergies, :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone)
+      params.require(:client).permit(:first_name, :last_name, :middle_name, :date_of_birth, :gender, :phone, :email, :location, :bio, :health_conditions, :medication, :allergies, :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone)
     end
 
     def support_worker_params
-      params.require(:support_worker).permit(:first_name, :last_name, :middle_name, :age, :gender, :phone, :email, :location, :bio, :experience, :availability, :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone)
+      params.require(:support_worker).permit(:first_name, :last_name, :middle_name, :date_of_birth, :gender, :phone, :email, :location, :bio, :experience, :availability, :qualification, :institution, :field_of_study, :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone)
     end
 
     def role_params

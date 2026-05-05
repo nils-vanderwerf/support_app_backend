@@ -24,6 +24,7 @@ module Api
 
     def show
       conversation = Conversation.includes(:client, :support_worker, :messages).find(params[:id])
+      authorize_conversation!(conversation)
       render json: conversation.as_json(
         include: {
           client: {},
@@ -51,6 +52,7 @@ module Api
 
     def suggest_booking
       conversation = Conversation.includes(:messages).find(params[:id])
+      authorize_conversation!(conversation)
 
       transcript = conversation.messages.order(:created_at).last(12).map do |m|
         "[#{m.sender_type}]: #{decrypt_content(m.content, conversation.id)}"
@@ -77,6 +79,7 @@ module Api
 
     def ai_respond
       conversation = Conversation.includes(:client, :support_worker, :messages, :appointments).find(params[:id])
+      authorize_conversation!(conversation)
 
       is_client = current_user.client.present?
       simulated_role = is_client ? 'support_worker' : 'client'
@@ -153,23 +156,27 @@ module Api
         pending_appts.each { |a| a.update!(status: 'declined') }
         declined_all = true
       elsif action == 'send_invitation' && parsed_action
-        affected_appt = conversation.appointments.create!(
-          date:             parsed_action['date'],
-          duration:         parsed_action['duration'],
-          location:         parsed_action['location'],
-          notes:            parsed_action['notes'],
-          client_id:        conversation.client_id,
-          support_worker_id: conversation.support_worker_id,
-          status:           'pending',
-          conversation_id:  conversation.id,
-          initiated_by:     simulated_role
-        )
-        appt_time = Time.parse(affected_appt.date.to_s).strftime('%-d %B at %-I:%M %p') rescue affected_appt.date.to_s
-        conversation.messages.create!(
-          content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
-          sender_type: simulated_role,
-          sender_id: simulated_person.id
-        )
+        already_exists = conversation.appointments.where(status: 'pending')
+                                     .any? { |a| a.date.to_s.start_with?(parsed_action['date'].to_s[0..15]) }
+        unless already_exists
+          affected_appt = conversation.appointments.create!(
+            date:             parsed_action['date'],
+            duration:         parsed_action['duration'],
+            location:         parsed_action['location'],
+            notes:            parsed_action['notes'],
+            client_id:        conversation.client_id,
+            support_worker_id: conversation.support_worker_id,
+            status:           'pending',
+            conversation_id:  conversation.id,
+            initiated_by:     simulated_role
+          )
+          appt_time = DateTime.parse(parsed_action['date']).strftime('%-d %B at %-I:%M %p') rescue affected_appt.date.to_s
+          conversation.messages.create!(
+            content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
+            sender_type: simulated_role,
+            sender_id: simulated_person.id
+          )
+        end
       elsif action == 'send_recurring_invitations' && parsed_action
         dates = Array(parsed_action['dates'])
         created_appts = dates.map do |date|
@@ -184,7 +191,7 @@ module Api
             conversation_id:  conversation.id,
             initiated_by:     simulated_role
           )
-          appt_time = Time.parse(appt.date.to_s).strftime('%-d %B at %-I:%M %p') rescue appt.date.to_s
+          appt_time = DateTime.parse(date).strftime('%-d %B at %-I:%M %p') rescue appt.date.to_s
           conversation.messages.create!(
             content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
             sender_type: simulated_role,
@@ -205,6 +212,12 @@ module Api
     end
 
     private
+
+    def authorize_conversation!(conversation)
+      authorized = current_user.client&.id == conversation.client_id ||
+                   current_user.support_worker&.id == conversation.support_worker_id
+      render json: { error: 'Forbidden' }, status: :forbidden and return unless authorized
+    end
 
     ENCRYPTION_CONTEXT = 'support-app-messages-v1'
 

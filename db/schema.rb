@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_09_072413) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_13_015350) do
   create_table "appointments", force: :cascade do |t|
     t.datetime "date"
     t.integer "duration"
@@ -29,7 +29,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_09_072413) do
 
   create_table "clients", force: :cascade do |t|
     t.string "first_name"
-    t.integer "age"
     t.string "gender"
     t.string "phone"
     t.text "health_conditions"
@@ -46,6 +45,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_09_072413) do
     t.string "email"
     t.string "emergency_contact_first_name"
     t.string "emergency_contact_last_name"
+    t.date "date_of_birth"
     t.index ["user_id"], name: "index_clients_on_user_id"
   end
 
@@ -64,9 +64,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_09_072413) do
   create_table "support_workers", force: :cascade do |t|
     t.string "first_name"
     t.string "last_name"
-    t.integer "age"
     t.text "bio"
-    t.text "experience"
     t.string "phone"
     t.string "email"
     t.string "availability"
@@ -79,6 +77,17 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_09_072413) do
     t.string "emergency_contact_last_name"
     t.string "emergency_contact_phone"
     t.string "gender"
+    t.string "status", default: "pending", null: false
+    t.string "police_check_number"
+    t.string "wwcc_number"
+    t.text "check_notes"
+    t.string "agent_recommendation"
+    t.integer "approved_by_id"
+    t.date "date_of_birth"
+    t.integer "experience"
+    t.string "qualification"
+    t.string "institution"
+    t.string "field_of_study"
     t.index ["user_id"], name: "index_support_workers_on_user_id"
   end
 
