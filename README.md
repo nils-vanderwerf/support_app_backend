@@ -11,6 +11,7 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - Role-based access control — clients and support workers have different permissions
 - Appointment booking between clients and support workers (admin roles are not currently supported)
 - CSRF protection for non-GET requests
+- **AI booking agent** — a `POST /api/ai_booking/chat` endpoint that runs a multi-step Claude tool-use loop and returns a plain text reply to the frontend
 
 ## Tech stack
 
@@ -18,6 +19,7 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - **Devise** for authentication
 - **SQLite** for development
 - **RSpec** for request specs
+- **anthropic gem** + **dotenv-rails** for the AI booking agent
 
 ## Backend concepts practised
 
@@ -29,8 +31,17 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - Session-based authentication (cookies, CSRF)
 - Encapsulation and modular design
 - RSpec request specs with context blocks
+- Agentic AI patterns — tool use, multi-step loops, and prompt engineering with the Claude API
 
 ## Running the app
+
+Add your Anthropic API key to a `.env` file in the project root (already gitignored):
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Then:
 
 ```bash
 bundle install

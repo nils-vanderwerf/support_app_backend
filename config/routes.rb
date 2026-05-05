@@ -16,6 +16,7 @@ Rails.application.routes.draw do
     resources :clients
     resources :appointments
     resources :visit_reports
+    post 'ai_booking/chat', to: 'ai_booking#chat'
     resources :support_workers
   end
 end
