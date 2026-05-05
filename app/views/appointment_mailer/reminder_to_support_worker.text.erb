@@ -1,0 +1,14 @@
+Hi <%= @appointment.support_worker.first_name %>,
+
+This is a reminder that you have a support appointment tomorrow.
+
+Client: <%= @client.first_name %> <%= @client.last_name %>
+Date: <%= @appointment.date.strftime('%A, %d %B %Y at %H:%M') %>
+Duration: <%= @appointment.duration %> minutes
+Location: <%= @appointment.location %>
+
+<% if @appointment.notes.present? %>
+Notes: <%= @appointment.notes %>
+<% end %>
+
+See you then!

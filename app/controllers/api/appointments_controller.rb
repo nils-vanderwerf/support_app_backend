@@ -4,7 +4,8 @@ module Api
       return render json: { errors: 'Must be logged in to book appointments' }, status: :unauthorized unless current_user
       return render json: { errors: 'Only clients and support workers can book appointments' }, status: :forbidden unless current_user.client || current_user.support_worker
       @appointment = Appointment.new(appointment_params)
-    if @appointment.save
+      if @appointment.save
+        schedule_reminder(@appointment)
         render json: @appointment
       else
         render json: { errors: @appointment.errors.full_messages }, status: :unprocessable_entity
@@ -25,10 +26,11 @@ module Api
     def update
       appointment = Appointment.find(params[:id])
       if appointment.update(appointment_params)
+        schedule_reminder(appointment)
         render json: appointment
       else
         render json: { errors: appointment.errors.full_messages }, status: :unprocessable_entity
-      end 
+      end
     end
 
     def destroy
@@ -38,6 +40,12 @@ module Api
     end
 
     private
+
+    def schedule_reminder(appointment)
+      reminder_time = appointment.date - 24.hours
+      return unless reminder_time > Time.current
+      AppointmentReminderJob.set(wait_until: reminder_time).perform_later(appointment.id)
+    end
 
     def appointment_params
       params.require(:appointment).permit(:date, :duration, :location, :notes, :client_id, :support_worker_id)
