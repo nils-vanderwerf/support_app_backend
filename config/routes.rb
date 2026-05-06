@@ -17,6 +17,7 @@ Rails.application.routes.draw do
     resources :appointments
     resources :visit_reports
     post 'ai_booking/chat', to: 'ai_booking#chat'
+    get 'dashboard', to: 'dashboard#show'
     resources :support_workers
   end
 end
