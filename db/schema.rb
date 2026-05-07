@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_07_100000) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_07_122835) do
   create_table "appointments", force: :cascade do |t|
     t.datetime "date"
     t.integer "duration"
@@ -99,6 +99,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_07_100000) do
     t.string "wwcc_number"
     t.text "check_notes"
     t.string "agent_recommendation"
+    t.integer "approved_by_id"
     t.index ["user_id"], name: "index_support_workers_on_user_id"
   end
 
