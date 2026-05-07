@@ -43,6 +43,8 @@ Rails.application.routes.draw do
       patch 'applications/:id/approve', to: '/api/admin#approve', as: :approve_application
       patch 'applications/:id/reject', to: '/api/admin#reject', as: :reject_application
       get 'appointments', to: '/api/admin#appointments'
+      get 'workers', to: '/api/admin#workers'
+      get 'stats', to: '/api/admin#stats'
     end
   end
 end

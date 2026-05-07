@@ -21,8 +21,24 @@ module Api
     end
 
     def appointments
-      appts = Appointment.includes(:client, :support_worker).order(date: :asc)
+      appts = Appointment.active.includes(:client, :support_worker).order(date: :asc)
       render json: appts.as_json(include: [:client, :support_worker])
+    end
+
+    def workers
+      workers = SupportWorker.where(status: 'approved').includes(:user, :specializations)
+      render json: workers.as_json(include: { specializations: {}, user: { only: [:email] } })
+    end
+
+    def stats
+      render json: {
+        approved_workers: SupportWorker.where(status: 'approved').count,
+        pending_workers:  SupportWorker.pending_approval.count,
+        total_clients:    Client.count,
+        appointments_this_week: Appointment.active
+          .where(date: Time.current.beginning_of_week..Time.current.end_of_week)
+          .count,
+      }
     end
 
     private
