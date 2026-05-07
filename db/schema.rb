@@ -10,7 +10,16 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_15_052819) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_15_065112) do
+  create_table "admin_messages", force: :cascade do |t|
+    t.integer "support_worker_id"
+    t.string "sender"
+    t.text "content"
+    t.datetime "read_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "appointments", force: :cascade do |t|
     t.datetime "date"
     t.integer "duration"
@@ -105,6 +114,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_15_052819) do
     t.string "field_of_study"
     t.date "police_check_expiry"
     t.date "wwcc_expiry"
+    t.text "admin_note"
+    t.datetime "rejected_at"
     t.index ["user_id"], name: "index_support_workers_on_user_id"
   end
 

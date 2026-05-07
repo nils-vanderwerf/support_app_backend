@@ -5,6 +5,11 @@ module Api
       worker = current_user.support_worker
       return render json: { error: 'Forbidden' }, status: :forbidden unless worker
 
+      if worker.rejected_at.present? && worker.rejected_at > 3.days.ago
+        reapply_at = worker.rejected_at + 3.days
+        return render json: { error: 'waiting_period', reapply_at: reapply_at.iso8601 }, status: :forbidden
+      end
+
       user_message = params[:message].to_s.strip
       history = params[:history] || []
 
@@ -34,8 +39,10 @@ module Api
             wwcc_number: extracted[:wwcc_number],
             wwcc_expiry: extracted[:wwcc_expiry],
             check_notes: extracted[:notes],
-            agent_recommendation: extracted[:recommendation]
+            agent_recommendation: extracted[:recommendation],
+            status: 'pending'
           )
+          VettingMailer.application_received(worker).deliver_later
         end
         reply_clean = reply_text.gsub('[VETTING_COMPLETE]', '').strip
       else
@@ -50,6 +57,19 @@ module Api
     rescue => e
       Rails.logger.error "VettingController error: #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       render json: { error: e.message }, status: :internal_server_error
+    end
+
+    def status
+      return render json: { error: 'Unauthorized' }, status: :unauthorized unless current_user
+      worker = current_user.support_worker
+      return render json: { error: 'Forbidden' }, status: :forbidden unless worker
+
+      if worker.rejected_at.present? && worker.rejected_at > 3.days.ago
+        reapply_at = worker.rejected_at + 3.days
+        return render json: { waiting_period: true, reapply_at: reapply_at.iso8601 }
+      end
+
+      render json: { waiting_period: false }
     end
 
     private

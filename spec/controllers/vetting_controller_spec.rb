@@ -8,6 +8,10 @@ RSpec.describe "VettingController", type: :request do
   end
   let(:plain_user) { User.create!(email: 'plain@test.com', password: 'password123', first_name: 'Jan', last_name: 'Doe') }
 
+  def login_as(user)
+    post api_login_path, params: { email: user.email, password: 'password123' }
+  end
+
   let(:chat_params) { { message: 'My police check number is ABC123456', history: [] } }
 
   let(:text_reply) do
@@ -22,6 +26,62 @@ RSpec.describe "VettingController", type: :request do
     { 'content' => [{ 'type' => 'text', 'text' => '{"police_check_number":"ABC123456","police_check_expiry":"2028-03-01","wwcc_number":"WWC7654321","wwcc_expiry":"2027-06-01","recommendation":"approved","notes":"All checks passed"}' }] }
   end
 
+  describe "GET /api/vetting/status" do
+    context 'when unauthenticated' do
+      it 'returns unauthorized' do
+        get '/api/vetting/status'
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when logged in as a user without a support worker profile' do
+      before { plain_user; login_as(plain_user) }
+
+      it 'returns forbidden' do
+        get '/api/vetting/status'
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'when support worker has not been rejected' do
+      before { support_worker; login_as(sw_user) }
+
+      it 'returns waiting_period false' do
+        get '/api/vetting/status'
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['waiting_period']).to be false
+      end
+    end
+
+    context 'when support worker was rejected within the last 3 days' do
+      before do
+        support_worker.update!(rejected_at: 1.day.ago)
+        login_as(sw_user)
+      end
+
+      it 'returns waiting_period true with reapply_at' do
+        get '/api/vetting/status'
+        expect(response).to have_http_status(:ok)
+        body = JSON.parse(response.body)
+        expect(body['waiting_period']).to be true
+        expect(body['reapply_at']).to be_present
+      end
+    end
+
+    context 'when support worker was rejected more than 3 days ago' do
+      before do
+        support_worker.update!(rejected_at: 4.days.ago)
+        login_as(sw_user)
+      end
+
+      it 'returns waiting_period false' do
+        get '/api/vetting/status'
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['waiting_period']).to be false
+      end
+    end
+  end
+
   describe "POST /api/vetting/chat" do
     context 'when unauthenticated' do
       it 'returns unauthorized' do
@@ -31,7 +91,7 @@ RSpec.describe "VettingController", type: :request do
     end
 
     context 'when logged in as a user without a support worker profile' do
-      before { plain_user; post api_login_path, params: { email: plain_user.email, password: 'password123' } }
+      before { plain_user; login_as(plain_user) }
 
       it 'returns forbidden' do
         post '/api/vetting/chat', params: chat_params
@@ -39,8 +99,23 @@ RSpec.describe "VettingController", type: :request do
       end
     end
 
+    context 'when support worker was rejected within the last 3 days' do
+      before do
+        support_worker.update!(rejected_at: 2.days.ago)
+        login_as(sw_user)
+      end
+
+      it 'returns forbidden with waiting_period error' do
+        post '/api/vetting/chat', params: chat_params
+        expect(response).to have_http_status(:forbidden)
+        body = JSON.parse(response.body)
+        expect(body['error']).to eq('waiting_period')
+        expect(body['reapply_at']).to be_present
+      end
+    end
+
     context 'when logged in as a support worker' do
-      before { support_worker; post api_login_path, params: { email: sw_user.email, password: 'password123' } }
+      before { support_worker; login_as(sw_user) }
 
       it 'returns the assistant reply' do
         anthropic_client = double

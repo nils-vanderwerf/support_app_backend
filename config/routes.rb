@@ -39,11 +39,20 @@ Rails.application.routes.draw do
     get 'dashboard', to: 'dashboard#show'
     resources :support_workers
     post 'vetting/chat', to: 'vetting#chat'
+    get  'vetting/status', to: 'vetting#status'
+    get  'admin_messages', to: 'admin_messages#index'
+    post 'admin_messages', to: 'admin_messages#create'
+    post 'password_resets/request', to: 'password_resets#create'
+    post 'password_resets/reset', to: 'password_resets#reset'
     namespace :admin do
       get 'applications', to: '/api/admin#applications'
       patch 'applications/:id/approve', to: '/api/admin#approve', as: :approve_application
       patch 'applications/:id/reject', to: '/api/admin#reject', as: :reject_application
       get 'appointments', to: '/api/admin#appointments'
+      get 'workers', to: '/api/admin#workers'
+      get 'stats', to: '/api/admin#stats'
+      get  'messages', to: '/api/admin#messages'
+      post 'messages/:support_worker_id/reply', to: '/api/admin#reply_message', as: :reply_message
     end
   end
 end
