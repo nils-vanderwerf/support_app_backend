@@ -89,8 +89,8 @@ module Api
       conversation = Conversation.find(appointment.conversation_id)
       actor = current_user.support_worker || current_user.client
       sender_type = current_user.support_worker ? 'support_worker' : 'client'
-      actor_name = "#{actor.first_name} #{actor.last_name}"
-      appt_time = appointment.date.strftime('%-d %B at %-I:%M %p') rescue appointment.date.to_s
+      tz = ActiveSupport::TimeZone[params[:timezone].to_s] || Time.zone
+      appt_time = appointment.date.in_time_zone(tz).strftime('%-d %B at %-I:%M %p') rescue appointment.date.to_s
 
       text = if status == 'approved'
         "[SYS]✓ Appointment confirmed for #{appt_time}."
