@@ -10,7 +10,7 @@ module Api
 
     def approve
       worker = SupportWorker.find(params[:id])
-      worker.update!(status: 'approved')
+      worker.update!(status: 'approved', approved_by_id: current_user.id)
       render json: { message: 'Support worker approved' }
     end
 
@@ -26,13 +26,13 @@ module Api
     end
 
     def workers
-      workers = SupportWorker.where(status: 'approved').includes(:user, :specializations)
+      workers = SupportWorker.where(status: 'approved', approved_by_id: current_user.id).includes(:user, :specializations)
       render json: workers.as_json(include: { specializations: {}, user: { only: [:email] } })
     end
 
     def stats
       render json: {
-        approved_workers: SupportWorker.where(status: 'approved').count,
+        approved_workers: SupportWorker.where(status: 'approved', approved_by_id: current_user.id).count,
         pending_workers:  SupportWorker.pending_approval.count,
         total_clients:    Client.count,
         appointments_this_week: Appointment.active
