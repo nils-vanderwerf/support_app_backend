@@ -14,13 +14,13 @@ module Api
 
     def index
       appointments = if current_user.client
-        Appointment.approved.where(client_id: current_user.client.id)
+        Appointment.approved.where(client_id: current_user.client.id).includes(:client, :support_worker)
       elsif current_user.support_worker
-        Appointment.approved.where(support_worker_id: current_user.support_worker.id)
+        Appointment.approved.where(support_worker_id: current_user.support_worker.id).includes(:client, :support_worker)
       else
         []
       end
-      render json: appointments, include: [:client, :support_worker]
+      render json: appointments.as_json(include: [:client, :support_worker])
     end
 
     def pending
@@ -92,9 +92,9 @@ module Api
       appt_time = appointment.date.strftime('%-d %B at %-I:%M %p') rescue appointment.date.to_s
 
       text = if status == 'approved'
-        "✓ #{actor_name} has accepted the appointment invitation for #{appt_time}."
+        "[SYS]✓ Appointment confirmed for #{appt_time}."
       else
-        "#{actor_name} has declined the appointment invitation for #{appt_time}."
+        "[SYS] Appointment declined for #{appt_time}."
       end
 
       conversation.messages.create!(
