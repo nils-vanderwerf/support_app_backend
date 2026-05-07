@@ -10,7 +10,6 @@ gem 'rack-cors'
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
 
-gem "pg", "~> 1.1"
 gem 'devise'
 gem 'devise_token_auth'
 
@@ -52,6 +51,10 @@ group :development, :test do
   gem "sqlite3", "~> 1.4"
   gem "debug"
   gem "dotenv-rails"
+end
+
+group :production do
+  gem "pg", "~> 1.1"
 end
 
 group :development do

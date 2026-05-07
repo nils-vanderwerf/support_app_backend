@@ -62,4 +62,66 @@ RSpec.describe 'ConversationsController', type: :request do
     end
 
   end
+
+  describe '#build_persona — fit checks' do
+    let(:controller_instance) { Api::ConversationsController.new }
+
+    let(:sw_far)   { SupportWorker.new(first_name: 'James',  last_name: 'Smith',    location: 'Melbourne') }
+    let(:sw_near)  { SupportWorker.new(first_name: 'Olivia', last_name: 'Williams', location: 'Surry Hills, Sydney') }
+    let(:client)   { Client.new(first_name: 'Elena', last_name: 'Martinez',         location: 'Surry Hills, Sydney') }
+
+    # Support worker — distance
+    it 'instructs the SW to assess distance in the opening message' do
+      persona = controller_instance.send(:build_persona, sw_far, 'support_worker', client, [], [])
+      expect(persona).to include('OPENING MESSAGE')
+      expect(persona).to include('100 km')
+    end
+
+    it 'requires the SW to decline in the first message when too far' do
+      persona = controller_instance.send(:build_persona, sw_far, 'support_worker', client, [], [])
+      expect(persona).to include('you MUST decline in your very first message')
+    end
+
+    it 'tells the SW to suggest the Suppova location filter when declining' do
+      persona = controller_instance.send(:build_persona, sw_far, 'support_worker', client, [], [])
+      expect(persona).to include('Suppova')
+      expect(persona).to include('location filter')
+    end
+
+    it 'includes both locations in the SW persona' do
+      persona = controller_instance.send(:build_persona, sw_far, 'support_worker', client, [], [])
+      expect(persona).to include('Melbourne')
+      expect(persona).to include('Surry Hills, Sydney')
+    end
+
+    # Support worker — specialization fit
+    it 'instructs the SW to check specialization fit in the opening message' do
+      persona = controller_instance.send(:build_persona, sw_near, 'support_worker', client, [], [])
+      expect(persona).to include('Specialization fit')
+    end
+
+    it 'includes SW specializations and client needs in the SW persona' do
+      persona = controller_instance.send(:build_persona, sw_near, 'support_worker', client, [], [])
+      expect(persona).to include('Specializations')
+      expect(persona).to include('needs')
+    end
+
+    # Client — distance
+    it 'instructs the client to assess distance in the opening message' do
+      persona = controller_instance.send(:build_persona, client, 'client', sw_far, [], [])
+      expect(persona).to include('OPENING MESSAGE')
+      expect(persona).to include('100 km')
+    end
+
+    it 'allows the client to decline bluntly without being diplomatic' do
+      persona = controller_instance.send(:build_persona, client, 'client', sw_far, [], [])
+      expect(persona).to include("don't need to be polite")
+    end
+
+    # Client — specialization fit
+    it 'instructs the client to check specialization fit in the opening message' do
+      persona = controller_instance.send(:build_persona, client, 'client', sw_near, [], [])
+      expect(persona).to include('Specialization fit')
+    end
+  end
 end

@@ -19,7 +19,6 @@ Rails.application.routes.draw do
       collection do
         get :pending
         get :recently_accepted
-        patch :bulk_approve
       end
       member do
         patch :approve
@@ -34,9 +33,10 @@ Rails.application.routes.draw do
         get :suggest_booking
       end
     end
-    post 'visit_reports/draft', to: 'visit_reports#draft'
-    resources :visit_reports, only: [:index, :show, :create]
+    resources :visit_reports
     post 'ai_booking/chat', to: 'ai_booking#chat'
+    post 'chat_simulation', to: 'chat_simulation#simulate'
+    get 'dashboard', to: 'dashboard#show'
     resources :support_workers
   end
 end
