@@ -10,15 +10,16 @@ module Api
       messages  = params[:messages].map { |m| { role: m[:role], content: m[:content] } }
       timezone  = params[:timezone].presence || 'UTC'
 
+      @conversation_id = nil
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
 
       loop do
         response = anthropic.messages(parameters: {
-          model:     'claude-sonnet-4-6',
+          model:      'claude-sonnet-4-6',
           max_tokens: 1024,
-          system:    system_prompt(profile, is_client, timezone),
-          messages:  messages,
-          tools:     booking_tools(is_client, timezone)
+          system:     system_prompt(profile, is_client, timezone),
+          messages:   messages,
+          tools:      booking_tools(is_client, timezone)
         })
 
         tool_uses = response['content'].select { |b| b['type'] == 'tool_use' }
@@ -31,7 +32,7 @@ module Api
           ]
         else
           text = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '')
-          return render json: { message: text }
+          return render json: { message: text, conversation_id: @conversation_id }
         end
       end
     end
@@ -42,7 +43,7 @@ module Api
       if is_client
         <<~PROMPT
           You are a friendly AI booking assistant for a disability support platform.
-          You help clients find and book appointments with support workers.
+          You help clients find support workers and send them appointment invitations.
 
           The client you are assisting:
           - Name: #{profile.first_name} #{profile.last_name}
@@ -55,16 +56,15 @@ module Api
           1. Understand what the client needs
           2. Call get_support_workers to find suitable workers
           3. Present 2-3 options with a brief reason each is a good match
-          4. Once the client selects a worker and provides a date, time and duration, call create_appointment
-          5. Confirm the booking details to the client
+          4. Once the client selects a worker, call open_conversation to start a chat with them
+          5. Let the client know they've been connected and can now chat and send an invitation directly from the conversation
 
           Be warm, concise and professional. Today's date is #{Date.today}.
-          The client's timezone is #{timezone}. Always include the UTC offset in the ISO 8601 datetime.
         PROMPT
       else
         <<~PROMPT
           You are a friendly AI booking assistant for a disability support platform.
-          You help support workers find and book appointments with clients.
+          You help support workers find clients and connect with them.
 
           The support worker you are assisting:
           - Name: #{profile.first_name} #{profile.last_name}
@@ -72,20 +72,28 @@ module Api
           - Location: #{profile.location.presence || 'Not specified'}
 
           When booking:
-          1. Understand which client they want to book with or what kind of client they are looking for
+          1. Understand which client they want to connect with or what kind of client they are looking for
           2. Call get_clients to find suitable clients
-          3. Once they select a client and provide a date, time and duration, call create_appointment
-          4. Confirm the booking details
+          3. Once they select a client, call open_conversation to start a chat with them
+          4. Let the support worker know they've been connected and can now message and send an invitation from the chat
 
           Be warm, concise and professional. Today's date is #{Date.today}.
-          The support worker's timezone is #{timezone}. Always include the UTC offset in the ISO 8601 datetime.
         PROMPT
       end
     end
 
-    def booking_tools(is_client, timezone = 'UTC')
-      offset_example = '+10:00'
-      date_desc = "ISO 8601 datetime with UTC offset for the user's timezone (#{timezone}), e.g. 2026-05-12T09:00:00#{offset_example}"
+    def booking_tools(is_client, _timezone = 'UTC')
+      open_conv_tool = {
+        name: 'open_conversation',
+        description: 'Open a conversation with the selected person. Call this once the user has chosen who they want to connect with. This will take the user directly to the chat.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            person_id: { type: 'integer', description: is_client ? 'ID of the support worker to connect with' : 'ID of the client to connect with' }
+          },
+          required: %w[person_id]
+        }
+      }
 
       if is_client
         [
@@ -99,21 +107,7 @@ module Api
               }
             }
           },
-          {
-            name: 'create_appointment',
-            description: 'Book an appointment between the current client and a support worker.',
-            input_schema: {
-              type: 'object',
-              properties: {
-                support_worker_id: { type: 'integer', description: 'ID of the support worker to book' },
-                date:              { type: 'string',  description: date_desc },
-                duration:          { type: 'integer', description: 'Duration in minutes' },
-                location:          { type: 'string',  description: 'Location of the appointment' },
-                notes:             { type: 'string',  description: 'Optional notes' }
-              },
-              required: %w[support_worker_id date duration location]
-            }
-          }
+          open_conv_tool
         ]
       else
         [
@@ -127,21 +121,7 @@ module Api
               }
             }
           },
-          {
-            name: 'create_appointment',
-            description: 'Book an appointment between the current support worker and a client.',
-            input_schema: {
-              type: 'object',
-              properties: {
-                client_id: { type: 'integer', description: 'ID of the client to book' },
-                date:      { type: 'string',  description: date_desc },
-                duration:  { type: 'integer', description: 'Duration in minutes' },
-                location:  { type: 'string',  description: 'Location of the appointment' },
-                notes:     { type: 'string',  description: 'Optional notes' }
-              },
-              required: %w[client_id date duration location]
-            }
-          }
+          open_conv_tool
         ]
       end
     end
@@ -150,7 +130,7 @@ module Api
       result = case tool_use['name']
                when 'get_support_workers' then run_get_support_workers(tool_use['input']['keyword'])
                when 'get_clients'         then run_get_clients(tool_use['input']['keyword'])
-               when 'create_appointment'  then run_create_appointment(tool_use['input'], profile, is_client)
+               when 'open_conversation'   then run_open_conversation(tool_use['input']['person_id'], profile, is_client)
                else { error: "Unknown tool: #{tool_use['name']}" }
                end
 
@@ -185,22 +165,17 @@ module Api
       end
     end
 
-    def run_create_appointment(input, profile, is_client)
-      attrs = {
-        date:     input['date'],
-        duration: input['duration'],
-        location: input['location'],
-        notes:    input['notes']
-      }
-      attrs[:client_id]         = is_client ? profile.id : input['client_id']
-      attrs[:support_worker_id] = is_client ? input['support_worker_id'] : profile.id
+    def run_open_conversation(person_id, profile, is_client)
+      client_id         = is_client ? profile.id : person_id
+      support_worker_id = is_client ? person_id   : profile.id
 
-      appointment = Appointment.new(attrs)
-      if appointment.save
-        { success: true, appointment_id: appointment.id }
-      else
-        { success: false, errors: appointment.errors.full_messages }
-      end
+      conversation = Conversation.find_or_create_by(
+        client_id: client_id,
+        support_worker_id: support_worker_id
+      )
+      @conversation_id = conversation.id
+
+      { success: true, conversation_id: conversation.id }
     end
   end
 end
