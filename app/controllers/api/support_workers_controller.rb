@@ -1,11 +1,20 @@
 module Api
   class SupportWorkersController < ApplicationController
     def index
-      render json: SupportWorker.includes(:specializations).all, include: :specializations
+      workers = if current_user&.is_admin
+        SupportWorker.includes(:specializations).all
+      else
+        SupportWorker.includes(:specializations).where(status: 'approved')
+      end
+      render json: workers.as_json(include: :specializations)
     end
 
     def show
-      render json: SupportWorker.includes(:specializations).find(params[:id]), include: :specializations
+      worker = SupportWorker.includes(:specializations).find(params[:id])
+      unless current_user&.is_admin || worker.status == 'approved'
+        return render json: { error: 'Not found' }, status: :not_found
+      end
+      render json: worker.as_json(include: :specializations)
     end
 
     def update

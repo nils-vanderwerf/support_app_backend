@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_06_232248) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_07_100000) do
   create_table "appointments", force: :cascade do |t|
     t.datetime "date"
     t.integer "duration"
@@ -94,6 +94,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_06_232248) do
     t.string "emergency_contact_last_name"
     t.string "emergency_contact_phone"
     t.string "gender"
+    t.string "status", default: "pending", null: false
+    t.string "police_check_number"
+    t.string "wwcc_number"
+    t.text "check_notes"
+    t.string "agent_recommendation"
     t.index ["user_id"], name: "index_support_workers_on_user_id"
   end
 
@@ -110,6 +115,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_06_232248) do
     t.string "first_name"
     t.string "last_name"
     t.string "middle_name"
+    t.boolean "is_admin", default: false, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end

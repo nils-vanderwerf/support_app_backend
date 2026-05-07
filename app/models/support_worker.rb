@@ -4,4 +4,8 @@ class SupportWorker < ApplicationRecord
   has_and_belongs_to_many :specializations
   validates :first_name, :last_name, :age, :phone, :email, :location, presence: true
   validates :email, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :status, inclusion: { in: %w[pending approved rejected] }
+
+  scope :approved, -> { where(status: 'approved') }
+  scope :pending_approval, -> { where(status: 'pending') }
 end
