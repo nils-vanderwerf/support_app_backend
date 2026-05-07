@@ -4,7 +4,9 @@ RSpec.describe "AppointmentsController", type: :request do
     let(:client_user) { User.create!(email: 'client@test.com', first_name: 'Jane', last_name: 'Doe', password: 'password123') }
     let(:client) { Client.create!(user_id: client_user.id, first_name: client_user.first_name, last_name: client_user.last_name) }
     let(:support_worker_user) { User.create!(email: 'test2@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown', role: 'support_worker') }
-    let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', age: 35, location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name) }
+    let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', age: 35, location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name, status: 'approved') }
+    let(:pending_sw_user) { User.create!(email: 'pending@test.com', password: 'password123', first_name: 'Pat', last_name: 'Pending') }
+    let(:pending_worker) { SupportWorker.create!(email: 'pending@test.com', phone: '0411111111', age: 28, location: 'Melbourne', user_id: pending_sw_user.id, first_name: 'Pat', last_name: 'Pending', status: 'pending') }
     let(:appointment_params) { { appointment: { date: "2026-05-01", duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id } } }
     let(:invalid_appointment_params) { { appointment: { duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id, date: nil } } }
     let(:invalid_user) { User.create!(email: 'invalid@test.com', first_name: 'Invalid', last_name: 'User', password: 'password123') }
@@ -153,8 +155,24 @@ RSpec.describe "AppointmentsController", type: :request do
       context 'when an appointment is deleted' do
         it 'soft deletes it, leaπving a datetime value on the deleted_at column on the record' do
           delete api_appointment_path(appointment)
-          expect(appointment.reload.deleted_at).not_to be nil 
+          expect(appointment.reload.deleted_at).not_to be nil
         end
+      end
+    end
+
+    describe "pending support worker restrictions" do
+      before { pending_worker; post api_login_path, params: { email: pending_sw_user.email, password: 'password123' } }
+
+      it 'returns an empty list for GET /api/appointments' do
+        get api_appointments_path
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)).to be_empty
+      end
+
+      it 'returns forbidden for POST /api/appointments' do
+        post api_appointments_path, params: appointment_params
+        expect(response).to have_http_status(:forbidden)
+        expect(Appointment.count).to eq(0)
       end
     end
 end

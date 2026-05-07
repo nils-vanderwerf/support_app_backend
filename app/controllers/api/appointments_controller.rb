@@ -2,7 +2,8 @@ module Api
   class AppointmentsController < ApplicationController
     def create
       return render json: { errors: 'Must be logged in to book appointments' }, status: :unauthorized unless current_user
-      return render json: { errors: 'Only clients and support workers can book appointments' }, status: :forbidden unless current_user.client || current_user.support_worker
+      approved_worker = current_user.support_worker&.status == 'approved'
+      return render json: { errors: 'Only clients and approved support workers can book appointments' }, status: :forbidden unless current_user.client || approved_worker
       @appointment = Appointment.new(appointment_params)
       if @appointment.save
         schedule_reminder(@appointment)
@@ -15,7 +16,7 @@ module Api
     def index
       appointments = if current_user.client
         Appointment.approved.where(client_id: current_user.client.id).includes(:client, :support_worker)
-      elsif current_user.support_worker
+      elsif current_user.support_worker&.status == 'approved'
         Appointment.approved.where(support_worker_id: current_user.support_worker.id).includes(:client, :support_worker)
       else
         []
