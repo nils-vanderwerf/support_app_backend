@@ -7,7 +7,7 @@ module Api
         session[:user_id] = user.id
         token = Rails.application.message_verifier(:auth).generate(user.id)
         render json: {
-          user: current_user.as_json(only: %i[id email role]),
+          user: current_user.as_json(only: %i[id email is_admin]),
           client: user.client,
           support_worker: user.support_worker,
           token: token
@@ -25,7 +25,7 @@ module Api
     def logged_in_user
       if current_user
         render json: {
-            user: current_user.as_json(only: %i[id email role]),
+            user: current_user.as_json(only: %i[id email is_admin]),
             client: current_user.client,
             support_worker: current_user.support_worker
           }

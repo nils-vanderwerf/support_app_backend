@@ -1,23 +1,20 @@
 module Api
   class SupportWorkersController < ApplicationController
     def index
-      return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.client || current_user&.admin?
-      workers = if current_user&.admin?
+      workers = if current_user&.is_admin
         SupportWorker.includes(:specializations).all
       else
         SupportWorker.includes(:specializations).where(status: 'approved')
       end
-      render json: workers.as_json(include: :specializations, methods: [:age])
+      render json: workers.as_json(include: :specializations)
     end
 
     def show
       worker = SupportWorker.includes(:specializations).find(params[:id])
-      is_own_profile = current_user&.support_worker&.id == worker.id
-      return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.client || current_user&.admin? || is_own_profile
-      unless current_user&.admin? || worker.status == 'approved' || is_own_profile
+      unless current_user&.is_admin || worker.status == 'approved'
         return render json: { error: 'Not found' }, status: :not_found
       end
-      render json: worker.as_json(include: :specializations, methods: [:age])
+      render json: worker.as_json(include: :specializations)
     end
 
     def update
@@ -36,6 +33,7 @@ module Api
       params.require(:support_worker).permit(
         :first_name, :last_name, :middle_name, :date_of_birth, :gender, :phone,
         :location, :bio, :experience, :availability, :qualification, :institution, :field_of_study,
+        :police_check_expiry, :wwcc_expiry,
         :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone
       )
     end

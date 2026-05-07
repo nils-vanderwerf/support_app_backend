@@ -8,7 +8,13 @@ module Api
         user.save!
         model = ROLE_MODELS[params[:role]]
         raise ActiveRecord::RecordInvalid.new(user), "Invalid role" unless model
-        model.create!(role_params.merge(user_id: user.id))
+        record = model.create!(role_params.merge(user_id: user.id))
+        if params[:role] == 'support_worker'
+          specs = Array(params.dig(:support_worker, :specializations)).map(&:strip).reject(&:blank?)
+          if specs.any?
+            record.specializations = specs.map { |name| Specialization.find_or_create_by!(name: name) }
+          end
+        end
       end
       render json: { message: 'User created successfully', user: user }, status: :created
     rescue ActiveRecord::RecordInvalid => e

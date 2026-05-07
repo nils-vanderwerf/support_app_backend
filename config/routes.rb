@@ -38,5 +38,12 @@ Rails.application.routes.draw do
     post 'chat_simulation', to: 'chat_simulation#simulate'
     get 'dashboard', to: 'dashboard#show'
     resources :support_workers
+    post 'vetting/chat', to: 'vetting#chat'
+    namespace :admin do
+      get 'applications', to: '/api/admin#applications'
+      patch 'applications/:id/approve', to: '/api/admin#approve', as: :approve_application
+      patch 'applications/:id/reject', to: '/api/admin#reject', as: :reject_application
+      get 'appointments', to: '/api/admin#appointments'
+    end
   end
 end

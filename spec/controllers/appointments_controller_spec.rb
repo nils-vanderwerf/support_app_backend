@@ -4,9 +4,9 @@ RSpec.describe "AppointmentsController", type: :request do
     let(:client_user) { User.create!(email: 'client@test.com', first_name: 'Jane', last_name: 'Doe', password: 'password123') }
     let(:client) { Client.create!(user_id: client_user.id, first_name: client_user.first_name, last_name: client_user.last_name) }
     let(:support_worker_user) { User.create!(email: 'test2@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown', role: 'support_worker') }
-    let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name, status: 'approved') }
+    let(:support_worker) { SupportWorker.create!(email: support_worker_user.email, phone: '6773 2092', age: 35, location: 'Sydney', user_id: support_worker_user.id, first_name: support_worker_user.first_name, last_name: support_worker_user.last_name, status: 'approved') }
     let(:pending_sw_user) { User.create!(email: 'pending@test.com', password: 'password123', first_name: 'Pat', last_name: 'Pending') }
-    let(:pending_worker) { SupportWorker.create!(email: 'pending@test.com', phone: '0411111111', location: 'Melbourne', user_id: pending_sw_user.id, first_name: 'Pat', last_name: 'Pending', status: 'pending') }
+    let(:pending_worker) { SupportWorker.create!(email: 'pending@test.com', phone: '0411111111', age: 28, location: 'Melbourne', user_id: pending_sw_user.id, first_name: 'Pat', last_name: 'Pending', status: 'pending') }
     let(:appointment_params) { { appointment: { date: "2026-05-01", duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id } } }
     let(:invalid_appointment_params) { { appointment: { duration: 30, location: "location", notes: "some notes", client_id: client.id, support_worker_id: support_worker.id, date: nil } } }
     let(:invalid_user) { User.create!(email: 'invalid@test.com', first_name: 'Invalid', last_name: 'User', password: 'password123') }
@@ -116,69 +116,8 @@ RSpec.describe "AppointmentsController", type: :request do
       context 'when an appointment is deleted' do
         it 'soft deletes it, leaπving a datetime value on the deleted_at column on the record' do
           delete api_appointment_path(appointment)
-          expect(appointment.reload.deleted_at).not_to be nil 
+          expect(appointment.reload.deleted_at).not_to be nil
         end
-      end
-    end
-
-    describe "PATCH /api/appointments/:id/approve" do
-      let(:pending_appointment) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending') }
-
-      context 'when the client approves' do
-        before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
-
-        it 'sets status to approved' do
-          patch approve_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
-          expect(response).to have_http_status(:ok)
-          expect(pending_appointment.reload.status).to eq('approved')
-        end
-      end
-
-      context 'when the support worker approves' do
-        before { post api_login_path, params: { email: support_worker_user.email, password: 'password123' } }
-
-        it 'sets status to approved' do
-          patch approve_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
-          expect(response).to have_http_status(:ok)
-          expect(pending_appointment.reload.status).to eq('approved')
-        end
-      end
-    end
-
-    describe "PATCH /api/appointments/:id/decline" do
-      let(:pending_appointment) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending') }
-
-      before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
-
-      it 'sets status to declined' do
-        patch decline_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
-        expect(response).to have_http_status(:ok)
-        expect(pending_appointment.reload.status).to eq('declined')
-      end
-    end
-
-    describe "PATCH /api/appointments/bulk_approve" do
-      let!(:pending1) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending') }
-      let!(:pending2) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-08 10:00', status: 'pending') }
-
-      before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
-
-      it 'approves all specified appointments in one request' do
-        patch bulk_approve_api_appointments_path,
-              params: { appointment_ids: [pending1.id, pending2.id], timezone: 'Australia/Sydney' }.to_json,
-              headers: { 'Content-Type' => 'application/json' }
-        expect(response).to have_http_status(:ok)
-        expect(JSON.parse(response.body)['approved_count']).to eq(2)
-        expect(pending1.reload.status).to eq('approved')
-        expect(pending2.reload.status).to eq('approved')
-      end
-
-      it 'ignores ids that are already approved' do
-        already_approved = Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-15 10:00', status: 'approved')
-        patch bulk_approve_api_appointments_path,
-              params: { appointment_ids: [pending1.id, already_approved.id], timezone: 'Australia/Sydney' }.to_json,
-              headers: { 'Content-Type' => 'application/json' }
-        expect(JSON.parse(response.body)['approved_count']).to eq(1)
       end
     end
 

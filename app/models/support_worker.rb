@@ -8,12 +8,4 @@ class SupportWorker < ApplicationRecord
 
   scope :approved, -> { where(status: 'approved') }
   scope :pending_approval, -> { where(status: 'pending') }
-
-  def age
-    return nil unless date_of_birth
-    today = Date.today
-    a = today.year - date_of_birth.year
-    a -= 1 if today < date_of_birth + a.years
-    a
-  end
 end

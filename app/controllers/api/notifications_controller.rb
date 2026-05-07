@@ -1,6 +1,7 @@
 module Api
   class NotificationsController < ApplicationController
     def index
+      return render json: { unread_messages: 0, pending_invitations: 0, total: 0 } unless current_user
       if current_user.client
         person = current_user.client
         role = 'client'
