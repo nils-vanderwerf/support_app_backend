@@ -10,15 +10,16 @@ module Api
       messages  = params[:messages].map { |m| { role: m[:role], content: m[:content] } }
       timezone  = params[:timezone].presence || 'UTC'
 
+      @conversation_id = nil
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
 
       loop do
         response = anthropic.messages(parameters: {
-          model:     'claude-sonnet-4-6',
+          model:      'claude-sonnet-4-6',
           max_tokens: 1024,
-          system:    system_prompt(profile, is_client, timezone),
-          messages:  messages,
-          tools:     booking_tools(is_client, timezone)
+          system:     system_prompt(profile, is_client, timezone),
+          messages:   messages,
+          tools:      booking_tools(is_client, timezone)
         })
 
         tool_uses = response['content'].select { |b| b['type'] == 'tool_use' }
@@ -31,7 +32,7 @@ module Api
           ]
         else
           text = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '')
-          return render json: { message: text }
+          return render json: { message: text, conversation_id: @conversation_id }
         end
       end
     end
@@ -42,7 +43,7 @@ module Api
       if is_client
         <<~PROMPT
           You are a friendly AI booking assistant for a disability support platform.
-          You help clients find and book appointments with support workers.
+          You help clients find support workers and send them appointment invitations.
 
           The client you are assisting:
           - Name: #{profile.first_name} #{profile.last_name}
@@ -55,8 +56,8 @@ module Api
           1. Understand what the client needs
           2. Call get_support_workers to find suitable workers
           3. Present 2-3 options with a brief reason each is a good match
-          4. Once the client selects a worker and provides a date, time and duration, call create_appointment
-          5. Confirm the booking details to the client
+          4. Once the client selects a worker and provides a date, time and duration, call send_invitation
+          5. Let the client know their invitation has been sent and they will be taken to the chat to await the worker's response
 
           Be warm, concise and professional. Today's date is #{Date.today}.
           The client's timezone is #{timezone}. Always include the UTC offset in the ISO 8601 datetime.
@@ -64,7 +65,7 @@ module Api
       else
         <<~PROMPT
           You are a friendly AI booking assistant for a disability support platform.
-          You help support workers find and book appointments with clients.
+          You help support workers find clients and send them appointment invitations.
 
           The support worker you are assisting:
           - Name: #{profile.first_name} #{profile.last_name}
@@ -74,8 +75,8 @@ module Api
           When booking:
           1. Understand which client they want to book with or what kind of client they are looking for
           2. Call get_clients to find suitable clients
-          3. Once they select a client and provide a date, time and duration, call create_appointment
-          4. Confirm the booking details
+          3. Once they select a client and provide a date, time and duration, call send_invitation
+          4. Let the support worker know the invitation has been sent and they will be taken to the chat
 
           Be warm, concise and professional. Today's date is #{Date.today}.
           The support worker's timezone is #{timezone}. Always include the UTC offset in the ISO 8601 datetime.
@@ -100,12 +101,12 @@ module Api
             }
           },
           {
-            name: 'create_appointment',
-            description: 'Book an appointment between the current client and a support worker.',
+            name: 'send_invitation',
+            description: 'Send a pending appointment invitation to a support worker. Creates a conversation and a pending appointment that the support worker must approve.',
             input_schema: {
               type: 'object',
               properties: {
-                support_worker_id: { type: 'integer', description: 'ID of the support worker to book' },
+                support_worker_id: { type: 'integer', description: 'ID of the support worker to invite' },
                 date:              { type: 'string',  description: date_desc },
                 duration:          { type: 'integer', description: 'Duration in minutes' },
                 location:          { type: 'string',  description: 'Location of the appointment' },
@@ -128,12 +129,12 @@ module Api
             }
           },
           {
-            name: 'create_appointment',
-            description: 'Book an appointment between the current support worker and a client.',
+            name: 'send_invitation',
+            description: 'Send a pending appointment invitation to a client. Creates a conversation and a pending appointment that the client can view.',
             input_schema: {
               type: 'object',
               properties: {
-                client_id: { type: 'integer', description: 'ID of the client to book' },
+                client_id: { type: 'integer', description: 'ID of the client to invite' },
                 date:      { type: 'string',  description: date_desc },
                 duration:  { type: 'integer', description: 'Duration in minutes' },
                 location:  { type: 'string',  description: 'Location of the appointment' },
@@ -150,7 +151,7 @@ module Api
       result = case tool_use['name']
                when 'get_support_workers' then run_get_support_workers(tool_use['input']['keyword'])
                when 'get_clients'         then run_get_clients(tool_use['input']['keyword'])
-               when 'create_appointment'  then run_create_appointment(tool_use['input'], profile, is_client)
+               when 'send_invitation'     then run_send_invitation(tool_use['input'], profile, is_client)
                else { error: "Unknown tool: #{tool_use['name']}" }
                end
 
@@ -185,19 +186,29 @@ module Api
       end
     end
 
-    def run_create_appointment(input, profile, is_client)
-      attrs = {
-        date:     input['date'],
-        duration: input['duration'],
-        location: input['location'],
-        notes:    input['notes']
-      }
-      attrs[:client_id]         = is_client ? profile.id : input['client_id']
-      attrs[:support_worker_id] = is_client ? input['support_worker_id'] : profile.id
+    def run_send_invitation(input, profile, is_client)
+      client_id         = is_client ? profile.id : input['client_id']
+      support_worker_id = is_client ? input['support_worker_id'] : profile.id
 
-      appointment = Appointment.new(attrs)
+      conversation = Conversation.find_or_create_by(
+        client_id: client_id,
+        support_worker_id: support_worker_id
+      )
+      @conversation_id = conversation.id
+
+      appointment = Appointment.new(
+        date:             input['date'],
+        duration:         input['duration'],
+        location:         input['location'],
+        notes:            input['notes'],
+        client_id:        client_id,
+        support_worker_id: support_worker_id,
+        status:           'pending',
+        conversation_id:  conversation.id
+      )
+
       if appointment.save
-        { success: true, appointment_id: appointment.id }
+        { success: true, appointment_id: appointment.id, conversation_id: conversation.id }
       else
         { success: false, errors: appointment.errors.full_messages }
       end
