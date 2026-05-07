@@ -12,7 +12,8 @@ RSpec.describe "SupportWorkersController", type: :request do
       age: 30,
       location: 'Sydney',
       bio: 'Experienced carer',
-      experience: '5 years in disability support'
+      experience: '5 years in disability support',
+      status: 'approved'
     )
   end
 

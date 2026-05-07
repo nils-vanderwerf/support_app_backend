@@ -1,13 +1,16 @@
 module Api
   class ClientsController < ApplicationController
     def index
-      return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.support_worker
+      worker = current_user&.support_worker
+      return render json: { error: 'Forbidden' }, status: :forbidden unless worker&.status == 'approved'
       render json: Client.all
     end
 
     def show
       client = Client.find(params[:id])
-      unless current_user&.support_worker || current_user&.client&.id == client.id
+      worker = current_user&.support_worker
+      approved_worker = worker&.status == 'approved'
+      unless approved_worker || current_user&.client&.id == client.id
         return render json: { error: 'Forbidden' }, status: :forbidden
       end
       render json: client

@@ -6,7 +6,12 @@ RSpec.describe "AiBookingController", type: :request do
   let(:sw_user) { User.create!(email: 'sw@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown') }
   let(:support_worker) do
     SupportWorker.create!(user: sw_user, first_name: 'Bob', last_name: 'Brown',
-                          email: 'sw@test.com', phone: '0400000000', age: 30, location: 'Sydney')
+                          email: 'sw@test.com', phone: '0400000000', age: 30, location: 'Sydney', status: 'approved')
+  end
+  let(:pending_sw_user) { User.create!(email: 'pending@test.com', password: 'password123', first_name: 'Pat', last_name: 'Pending') }
+  let(:pending_worker) do
+    SupportWorker.create!(user: pending_sw_user, first_name: 'Pat', last_name: 'Pending',
+                          email: 'pending@test.com', phone: '0411111111', age: 25, location: 'Melbourne', status: 'pending')
   end
 
   let(:messages_params) { { messages: [{ role: 'user', content: 'I need help with bathing' }] } }
@@ -34,16 +39,31 @@ RSpec.describe "AiBookingController", type: :request do
       end
     end
 
-    context 'when a support worker (not a client) is logged in' do
+    context 'when a pending support worker is logged in' do
       before do
-        support_worker
-        post api_login_path, params: { email: sw_user.email, password: 'password123' }
+        pending_worker
+        post api_login_path, params: { email: pending_sw_user.email, password: 'password123' }
       end
 
       it 'returns forbidden' do
         post '/api/ai_booking/chat', params: messages_params
         expect(response).to have_http_status(:forbidden)
       end
+    end
+
+    context 'when an approved support worker is logged in' do
+      before do
+        support_worker
+        post api_login_path, params: { email: sw_user.email, password: 'password123' }
+      end
+
+      it 'returns the text reply from Claude' do
+        allow_any_instance_of(Anthropic::Client).to receive(:messages).and_return(text_response)
+        post '/api/ai_booking/chat', params: messages_params
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['message']).to eq('I found some workers for you.')
+      end
+
     end
 
     context 'when a client is logged in' do
