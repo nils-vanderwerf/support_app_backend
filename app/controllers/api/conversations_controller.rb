@@ -102,15 +102,19 @@ module Api
 
       reply_text = response['content'].first['text'].strip
 
-      # Parse optional JSON action from Claude
+      # Parse optional JSON action from Claude — may be the full reply or embedded within prose
       action = nil
       parsed_action = nil
       reply_clean = reply_text
-      if reply_text.start_with?('{')
+      if (start_idx = reply_text.index('{')) && (end_idx = reply_text.rindex('}'))
         begin
-          parsed_action = JSON.parse(reply_text)
-          reply_clean = parsed_action['message']
-          action = parsed_action['action']
+          candidate = reply_text[start_idx..end_idx]
+          parsed = JSON.parse(candidate)
+          if parsed.key?('action')
+            parsed_action = parsed
+            action = parsed['action']
+            reply_clean = parsed['message'].presence || reply_text[0...start_idx].strip
+          end
         rescue JSON::ParserError
         end
       end
@@ -177,9 +181,10 @@ module Api
           If you intend to immediately follow up with more content, end your message with [CONTINUE] on its own line.
           Today is #{today}.
           When you and #{other_name} have clearly agreed on a date, time, location and duration for an appointment,
-          proactively offer to send a formal invitation. Once confirmed, respond with ONLY this JSON (no other text):
+          proactively offer to send a formal invitation. Once confirmed, your ENTIRE response must be ONLY this JSON with no surrounding text whatsoever:
           {"message": "your friendly confirmation message", "action": "send_invitation", "date": "YYYY-MM-DDTHH:MM:00+HH:MM", "duration": <minutes>, "location": "place"}
           Use the actual agreed date, time and location. Include the correct UTC offset for Sydney time (+10:00).
+          Do NOT write any text before or after the JSON object.
         P
       end
 
