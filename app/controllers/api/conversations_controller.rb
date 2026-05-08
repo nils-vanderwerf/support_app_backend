@@ -57,7 +57,7 @@ module Api
       response = anthropic.messages(parameters: {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 200,
-        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{Date.today} (#{Date.today.strftime('%A')}). Resolve relative days like 'next Tuesday' or 'tomorrow' to absolute YYYY-MM-DD dates. Do not wrap in markdown.",
+        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{Date.today} (#{Date.today.strftime('%A')}). Resolve relative days like 'next Tuesday' or 'tomorrow' to the next upcoming occurrence of that weekday as an absolute YYYY-MM-DD date. After resolving, verify the weekday of your chosen date matches what was mentioned (e.g. if 'Thursday' was mentioned, confirm your date is actually a Thursday). Do not wrap in markdown.",
         messages: [{ role: 'user', content: transcript }],
       })
 
@@ -147,6 +147,16 @@ module Api
           status:           'pending',
           conversation_id:  conversation.id
         )
+        begin
+          appt_time = Time.parse(affected_appt.date.to_s).strftime('%-d %B at %-I:%M %p')
+        rescue
+          appt_time = affected_appt.date.to_s
+        end
+        conversation.messages.create!(
+          content: "[SYS]✓ Appointment invitation sent for #{appt_time}.",
+          sender_type: simulated_role,
+          sender_id: simulated_person.id
+        )
       end
 
       render json: {
@@ -165,6 +175,15 @@ module Api
 
       today = Date.today.strftime('%A, %-d %B %Y')
 
+      invitation_instructions = <<~INV
+        Today is #{today}.
+        When you and #{other_name} have clearly agreed on a date, time, location and duration for an appointment,
+        proactively offer to send a formal invitation. Once confirmed, your ENTIRE response must be ONLY this JSON with no surrounding text whatsoever:
+        {"message": "your friendly confirmation message", "action": "send_invitation", "date": "YYYY-MM-DDTHH:MM:00+HH:MM", "duration": <minutes>, "location": "place"}
+        Use the actual agreed date, time and location. Include the correct UTC offset for Sydney time (+10:00).
+        Do NOT write any text before or after the JSON object.
+      INV
+
       base = if simulated_role == 'support_worker'
         <<~P
           You are #{name} (the SUPPORT WORKER). You are chatting with #{other_name}, who is your CLIENT.
@@ -172,6 +191,7 @@ module Api
           Your details — Location: #{simulated_person.location}, Bio: #{simulated_person.bio.presence || 'experienced support worker'}.
           Be warm, professional and concise. Keep replies to 1-3 sentences.
           If you intend to immediately follow up with more content, end your message with [CONTINUE] on its own line.
+          #{invitation_instructions}
         P
       else
         <<~P
@@ -179,12 +199,7 @@ module Api
           CRITICAL: You are #{name}. The other person is #{other_name}. Never call #{other_name} by your own name (#{simulated_person.first_name}).
           Be natural and conversational. Keep replies to 1-3 sentences.
           If you intend to immediately follow up with more content, end your message with [CONTINUE] on its own line.
-          Today is #{today}.
-          When you and #{other_name} have clearly agreed on a date, time, location and duration for an appointment,
-          proactively offer to send a formal invitation. Once confirmed, your ENTIRE response must be ONLY this JSON with no surrounding text whatsoever:
-          {"message": "your friendly confirmation message", "action": "send_invitation", "date": "YYYY-MM-DDTHH:MM:00+HH:MM", "duration": <minutes>, "location": "place"}
-          Use the actual agreed date, time and location. Include the correct UTC offset for Sydney time (+10:00).
-          Do NOT write any text before or after the JSON object.
+          #{invitation_instructions}
         P
       end
 
