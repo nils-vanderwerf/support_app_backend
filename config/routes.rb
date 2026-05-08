@@ -13,6 +13,8 @@ Rails.application.routes.draw do
     # Defines the root path route ("/")
     # root "posts#index"
     resources :users, only: [:create]
+    post   'password_resets', to: 'password_resets#create'
+    patch  'password_resets/:token', to: 'password_resets#update'
     resources :clients
     resources :appointments do
       collection do

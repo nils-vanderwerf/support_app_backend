@@ -1,0 +1,8 @@
+<h2>Hi <%= @user.first_name %>,</h2>
+<p>We received a request to reset your password.</p>
+<p>
+  <a href="<%= @reset_url %>" style="background:#7B2FBE;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">
+    Reset Password
+  </a>
+</p>
+<p>This link expires in 2 hours. If you didn't request a reset, you can ignore this email.</p>
