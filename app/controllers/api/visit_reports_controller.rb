@@ -58,6 +58,7 @@ module Api
       })
 
       text = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '{}')
+      text = text.gsub(/\A```(?:json)?\n?/, '').gsub(/\n?```\z/, '').strip
       draft = JSON.parse(text)
       render json: draft
     rescue JSON::ParserError

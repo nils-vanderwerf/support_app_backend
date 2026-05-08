@@ -107,6 +107,18 @@ RSpec.describe 'VisitReportsController', type: :request do
       expect(body['activities']).to eq('Helped with cooking')
     end
 
+    it 'strips markdown code fences from AI response before parsing' do
+      fenced = "```json\n{\"activities\":\"Cooking\",\"observations\":\"Well\",\"follow_up_actions\":\"None\"}\n```"
+      draft_response = { 'content' => [{ 'type' => 'text', 'text' => fenced }] }
+      fake_client = instance_double(Anthropic::Client, messages: draft_response)
+      allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+
+      post '/api/visit_reports/draft', params: { appointment_id: appointment.id }
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body['activities']).to eq('Cooking')
+    end
+
     it 'returns empty fields when AI response is not valid JSON' do
       bad_response = { 'content' => [{ 'type' => 'text', 'text' => 'not json' }] }
       fake_client = instance_double(Anthropic::Client, messages: bad_response)
