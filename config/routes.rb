@@ -32,7 +32,8 @@ Rails.application.routes.draw do
         get :suggest_booking
       end
     end
-    resources :visit_reports
+    post 'visit_reports/draft', to: 'visit_reports#draft'
+    resources :visit_reports, only: [:index, :show, :create]
     post 'ai_booking/chat', to: 'ai_booking#chat'
     post 'chat_simulation', to: 'chat_simulation#simulate'
     get 'dashboard', to: 'dashboard#show'
