@@ -48,7 +48,7 @@ module Api
       conversation = Conversation.includes(:messages).find(params[:id])
 
       transcript = conversation.messages.order(:created_at).last(12).map do |m|
-        "[#{m.sender_type}]: #{m.content}"
+        "[#{m.sender_type}]: #{decrypt_content(m.content, conversation.id)}"
       end.join("\n")
 
       return render json: {} if transcript.blank?
@@ -83,7 +83,7 @@ module Api
 
       history = conversation.messages.order(:created_at).map do |m|
         role = m.sender_type == simulated_role ? 'assistant' : 'user'
-        { role: role, content: m.content }
+        { role: role, content: decrypt_content(m.content, conversation.id) }
       end
 
       return render json: { error: 'No message to respond to' }, status: :unprocessable_entity if history.empty?
@@ -125,7 +125,7 @@ module Api
       reply_clean = reply_clean.gsub('[CONTINUE]', '').strip
 
       msg = conversation.messages.create!(
-        content: reply_clean,
+        content: encrypt_content(reply_clean, conversation.id),
         sender_type: simulated_role,
         sender_id: simulated_person.id
       )
@@ -154,14 +154,14 @@ module Api
           appt_time = affected_appt.date.to_s
         end
         conversation.messages.create!(
-          content: "[SYS]✓ Appointment invitation sent for #{appt_time}.",
+          content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
           sender_type: simulated_role,
           sender_id: simulated_person.id
         )
       end
 
       render json: {
-        message: msg.as_json(only: %i[id content sender_type sender_id created_at]),
+        message: msg.as_json(only: %i[id content sender_type sender_id created_at]).merge('content' => reply_clean),
         action: action,
         appointment: affected_appt&.reload&.as_json(only: %i[id status date duration location notes]),
         continue: will_continue,
@@ -169,6 +169,57 @@ module Api
     end
 
     private
+
+    ENCRYPTION_CONTEXT = 'support-app-messages-v1'
+
+    # Mirrors the frontend encryptMessage/decryptMessage in src/utils/encryption.ts.
+    # Key derivation: HKDF-SHA256, IKM = salt = APP_CONTEXT, info = "conv-{id}".
+    # Wire format: Base64( 12-byte IV | AES-256-GCM ciphertext+tag ), prefixed "ENC:".
+    def decrypt_content(content, conversation_id)
+      return content unless content.start_with?('ENC:')
+
+      combined = Base64.decode64(content[4..])
+      return content if combined.bytesize < 29 # 12 IV + 1 byte minimum + 16 tag
+
+      iv              = combined[0, 12]
+      encrypted_plus_tag = combined[12..]
+      tag             = encrypted_plus_tag[-16..]
+      ciphertext      = encrypted_plus_tag[0..-17]
+
+      # HKDF-Extract: PRK = HMAC-SHA256(salt, IKM)
+      prk = OpenSSL::HMAC.digest('SHA256', ENCRYPTION_CONTEXT, ENCRYPTION_CONTEXT)
+      # HKDF-Expand: T(1) = HMAC-SHA256(PRK, info || 0x01), first 32 bytes
+      key = OpenSSL::HMAC.digest('SHA256', prk, "conv-#{conversation_id}\x01")[0, 32]
+
+      cipher = OpenSSL::Cipher.new('aes-256-gcm')
+      cipher.decrypt
+      cipher.key      = key
+      cipher.iv       = iv
+      cipher.auth_tag = tag
+      cipher.auth_data = ''
+
+      cipher.update(ciphertext) + cipher.final
+    rescue StandardError
+      content
+    end
+
+    def encrypt_content(plaintext, conversation_id)
+      prk = OpenSSL::HMAC.digest('SHA256', ENCRYPTION_CONTEXT, ENCRYPTION_CONTEXT)
+      key = OpenSSL::HMAC.digest('SHA256', prk, "conv-#{conversation_id}\x01")[0, 32]
+
+      iv = SecureRandom.random_bytes(12)
+
+      cipher = OpenSSL::Cipher.new('aes-256-gcm')
+      cipher.encrypt
+      cipher.key      = key
+      cipher.iv       = iv
+      cipher.auth_data = ''
+
+      ciphertext = cipher.update(plaintext) + cipher.final
+      tag = cipher.auth_tag  # 16 bytes, appended to match Web Crypto wire format
+
+      'ENC:' + Base64.strict_encode64(iv + ciphertext + tag)
+    end
 
     def build_persona(simulated_person, simulated_role, current_person, pending_appt)
       name = "#{simulated_person.first_name} #{simulated_person.last_name}"
