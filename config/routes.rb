@@ -43,7 +43,9 @@ Rails.application.routes.draw do
     get  'vetting/status', to: 'vetting#status'
     get  'admin_messages', to: 'admin_messages#index'
     post 'admin_messages', to: 'admin_messages#create'
+    post 'password_resets', to: 'password_resets#create'
     post 'password_resets/request', to: 'password_resets#create'
+    patch 'password_resets/:token', to: 'password_resets#reset'
     post 'password_resets/reset', to: 'password_resets#reset'
     namespace :admin do
       get 'applications', to: '/api/admin#applications'

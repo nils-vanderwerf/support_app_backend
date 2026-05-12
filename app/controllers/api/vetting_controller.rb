@@ -42,7 +42,7 @@ module Api
             agent_recommendation: extracted[:recommendation],
             status: 'pending'
           )
-          VettingMailer.application_received(worker).deliver_later
+          VettingMailer.application_received(worker).deliver_now
         end
         reply_clean = reply_text.gsub('[VETTING_COMPLETE]', '').strip
       else

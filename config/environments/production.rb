@@ -72,6 +72,16 @@ Rails.application.configure do
   # config.active_job.queue_name_prefix = "support_app_production"
 
   config.action_mailer.perform_caching = false
+  config.action_mailer.delivery_method = :smtp
+  config.action_mailer.smtp_settings = {
+    address:              'smtp.resend.com',
+    port:                 587,
+    user_name:            'resend',
+    password:             ENV['RESEND_API_KEY'],
+    authentication:       :plain,
+    enable_starttls_auto: true,
+  }
+  config.action_mailer.default_url_options = { host: ENV.fetch('BACKEND_URL', 'localhost'), protocol: 'https' }
 
   config.action_mailer.raise_delivery_errors = true
 
