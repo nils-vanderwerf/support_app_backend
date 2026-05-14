@@ -1,6 +1,6 @@
-# Support App Backend — Kindred Support Platform
+# Support App Backend — Suppova Support Platform
 
-Rails API backend for the Kindred Support platform.
+Rails API backend for the Suppova Support platform.
 
 ## Stack
 
