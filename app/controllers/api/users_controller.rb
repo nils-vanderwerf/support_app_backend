@@ -1,7 +1,6 @@
 module Api
   class UsersController < ApplicationController
     include RoleRegistry 
-
     def create
       user = User.new(user_params)
       ActiveRecord::Base.transaction do
@@ -10,9 +9,9 @@ module Api
         raise ActiveRecord::RecordInvalid.new(user), "Invalid role" unless model
         record = model.create!(role_params.merge(user_id: user.id))
         if params[:role] == 'support_worker'
-          specs = Array(params.dig(:support_worker, :specializations)).map(&:strip).reject(&:blank?)
+          specs = Array(params.dig(:support_worker, :specialisations)).map(&:strip).reject(&:blank?)
           if specs.any?
-            record.specializations = specs.map { |name| Specialization.find_or_create_by!(name: name) }
+            record.specialisations = specs.map { |name| Specialisation.find_or_create_by!(name: name) }
           end
         end
       end

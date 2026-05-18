@@ -1,8 +1,6 @@
 module Api
   class ApplicationController < ActionController::Base
-    protect_from_forgery unless: -> { Rails.env.development? || Rails.env.test? }
-
-    before_action :set_csrf_cookie
+    skip_before_action :verify_authenticity_token
 
     def csrf_token
       render json: { csrf_token: 'not-used' }

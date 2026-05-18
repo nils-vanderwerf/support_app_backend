@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_15_065112) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_18_212343) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -33,6 +33,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_15_065112) do
     t.datetime "deleted_at"
     t.string "status", default: "approved", null: false
     t.integer "conversation_id"
+    t.string "initiated_by", default: "client"
   end
 
   create_table "clients", force: :cascade do |t|
@@ -73,16 +74,16 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_15_065112) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "specializations", force: :cascade do |t|
+  create_table "specialisations", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "support_worker_id"
   end
 
-  create_table "specializations_support_workers", id: false, force: :cascade do |t|
+  create_table "specialisations_support_workers", id: false, force: :cascade do |t|
     t.integer "support_worker_id", null: false
-    t.integer "specialization_id", null: false
+    t.integer "specialisation_id", null: false
   end
 
   create_table "support_workers", force: :cascade do |t|
@@ -132,7 +133,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_15_065112) do
     t.string "first_name"
     t.string "last_name"
     t.string "middle_name"
-    t.boolean "is_admin", default: false, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end

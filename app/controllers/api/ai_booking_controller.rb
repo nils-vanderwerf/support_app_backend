@@ -59,18 +59,34 @@ module Api
           - Medication: #{profile.medication.presence || 'None recorded'}
           - Allergies: #{profile.allergies.presence || 'None recorded'}
 
-          When booking:
-          1. Understand what the client needs
-          2. Call get_support_workers to find suitable workers
-          3. Present 2-3 options with a brief reason each is a good match
-          4. Once the client selects a worker, call open_conversation to start a chat with them
-          5. Let the client know they've been connected and can now chat and send an invitation directly from the conversation
+          When finding and recommending support workers, you MUST apply these two checks:
+
+          1. DISTANCE CHECK — The client is in #{client_location}.
+             Use your geographic knowledge to assess distance.
+             If a worker is more than ~100km away (e.g. a different city or state), flag this clearly:
+             tell the client the worker is too far away and skip or deprioritise them.
+             Only recommend local or nearby workers unless the client explicitly asks for remote options.
+
+          2. SPECIALIZATION FIT — The client's needs are: #{client_needs}.
+             Only recommend workers whose specialisations genuinely match these needs.
+             If a worker's specialisations are unrelated, say so and move on.
+             If no workers are a good fit, say so honestly rather than forcing a recommendation.
+
+          When presenting options, always state: why each worker is a good location and specialisation match.
+          If you push back on a worker due to distance or poor fit, briefly explain why.
+
+          Workflow:
+          1. Understand what the client needs (clarify if vague)
+          2. Call get_support_workers to find candidates
+          3. Apply distance and specialisation checks — only present suitable workers
+          4. Once the client selects a worker, call open_conversation
+          5. Let them know they can chat and send an invitation from the conversation
 
           Be warm, concise and professional. Today's date is #{Date.today}.
         PROMPT
       else
         sw_location        = profile.location.presence || 'Not specified'
-        sw_specializations = profile.specializations.map(&:name).join(', ').presence || 'None recorded'
+        sw_specialisations = profile.specialisations.map(&:name).join(', ').presence || 'None recorded'
         <<~PROMPT
           You are a friendly AI booking assistant for a disability support platform.
           You help support workers find clients and connect with them.
@@ -78,13 +94,25 @@ module Api
           The support worker you are assisting:
           - Name: #{profile.first_name} #{profile.last_name}
           - Location: #{sw_location}
-          - Specializations: #{sw_specializations}
+          - Specialisations: #{sw_specialisations}
 
-          When booking:
-          1. Understand which client they want to connect with or what kind of client they are looking for
-          2. Call get_clients to find suitable clients
-          3. Once they select a client, call open_conversation to start a chat with them
-          4. Let the support worker know they've been connected and can now message and send an invitation from the chat
+          When finding clients, you MUST apply these two checks:
+
+          1. DISTANCE CHECK — You are based in #{sw_location}.
+             Use your geographic knowledge to assess distance.
+             If a client is more than ~100km away, flag this clearly and deprioritise them.
+             Only surface local or nearby clients unless the worker explicitly asks otherwise.
+
+          2. NEEDS FIT — Your specialisations are: #{sw_specialisations}.
+             Only recommend clients whose health conditions or care needs align with what you do.
+             If a client's needs fall outside your specialisations, say so directly.
+
+          Workflow:
+          1. Ask what kind of client or care need they are looking for
+          2. Call get_clients to find candidates
+          3. Apply distance and needs-fit checks — only present suitable clients
+          4. Once they choose a client, call open_conversation
+          5. Let them know they can message and send an invitation from the chat
 
           Be warm, concise and professional. Today's date is #{Date.today}.
         PROMPT
@@ -108,11 +136,11 @@ module Api
         [
           {
             name: 'get_support_workers',
-            description: 'Fetch available support workers, including name, bio, experience, specializations, availability and location.',
+            description: 'Fetch available support workers, including name, bio, experience, specialisations, availability and location.',
             input_schema: {
               type: 'object',
               properties: {
-                keyword: { type: 'string', description: 'Optional keyword to filter by (searches bio, experience and specializations)' }
+                keyword: { type: 'string', description: 'Optional keyword to filter by (searches bio, experience and specialisations)' }
               }
             }
           },
@@ -147,16 +175,16 @@ module Api
     end
 
     def run_get_support_workers(keyword)
-      workers = SupportWorker.includes(:specializations).where(status: 'approved')
+      workers = SupportWorker.includes(:specialisations).where(status: 'approved')
       if keyword.present?
         kw = keyword.downcase
         workers = workers.select do |w|
-          ["#{w.first_name} #{w.last_name}", w.location, w.bio, w.experience.to_s, w.specializations.map(&:name).join(' ')].any? { |f| f.to_s.downcase.include?(kw) }
+          ["#{w.first_name} #{w.last_name}", w.location, w.bio, w.experience.to_s, w.specialisations.map(&:name).join(' ')].any? { |f| f.to_s.downcase.include?(kw) }
         end
       end
       workers.map do |w|
         { id: w.id, name: "#{w.first_name} #{w.last_name}", location: w.location,
-          specializations: w.specializations.map(&:name), bio: w.bio,
+          specialisations: w.specialisations.map(&:name), bio: w.bio,
           experience: w.experience, availability: w.availability }
       end
     end

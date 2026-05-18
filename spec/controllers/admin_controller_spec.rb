@@ -1,8 +1,10 @@
 require 'rails_helper'
 
 RSpec.describe "AdminController", type: :request do
-  let(:admin_user) { User.create!(email: 'admin@test.com', password: 'password123', first_name: 'Admin', last_name: 'User', is_admin: true) }
+  let(:admin_user) { User.create!(email: 'admin@test.com', password: 'password123', first_name: 'Admin', last_name: 'User', role: :admin) }
   let(:plain_user)  { User.create!(email: 'plain@test.com', password: 'password123', first_name: 'Jan', last_name: 'Doe') }
+
+  let(:other_admin_user) { User.create!(email: 'admin2@test.com', password: 'password123', first_name: 'Other', last_name: 'Admin', role: :admin) }
 
   let(:sw_user) { User.create!(email: 'sw@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown') }
   let(:approved_worker) do
@@ -27,6 +29,18 @@ RSpec.describe "AdminController", type: :request do
   let(:client_user) { User.create!(email: 'client@test.com', password: 'password123', first_name: 'Jane', last_name: 'Smith') }
   let(:client) { Client.create!(user: client_user, first_name: 'Jane', last_name: 'Smith') }
 
+  let(:other_client_user) { User.create!(email: 'otherclient@test.com', password: 'password123', first_name: 'Sam', last_name: 'Jones') }
+  let(:other_client) { Client.create!(user: other_client_user, first_name: 'Sam', last_name: 'Jones') }
+
+  let(:appointment_with_admin_worker) do
+    Appointment.create!(client: client, support_worker: approved_worker,
+                        date: Time.current + 1.day, duration: 60, location: 'Sydney', status: 'approved')
+  end
+  let(:appointment_with_other_worker) do
+    Appointment.create!(client: other_client, support_worker: other_approved_worker,
+                        date: Time.current + 2.days, duration: 60, location: 'Brisbane', status: 'approved')
+  end
+
   def login_as(user)
     post api_login_path, params: { email: user.email, password: 'password123' }
   end
@@ -43,18 +57,19 @@ RSpec.describe "AdminController", type: :request do
 
     context 'when logged in as admin' do
       before do
-        approved_worker; pending_worker; client
+        approved_worker; other_approved_worker; pending_worker
+        appointment_with_admin_worker; appointment_with_other_worker
         login_as(admin_user)
       end
 
-      it 'returns correct counts' do
+      it 'scopes all counts to this admin' do
         get '/api/admin/stats'
         expect(response).to have_http_status(:ok)
         body = JSON.parse(response.body)
         expect(body['approved_workers']).to eq(1)
         expect(body['pending_workers']).to eq(1)
         expect(body['total_clients']).to eq(1)
-        expect(body).to have_key('appointments_this_week')
+        expect(body['appointments_this_week']).to eq(1)
       end
     end
   end
@@ -70,14 +85,32 @@ RSpec.describe "AdminController", type: :request do
     end
 
     context 'when logged in as admin' do
-      before { approved_worker; pending_worker; login_as(admin_user) }
+      before { approved_worker; other_approved_worker; pending_worker; login_as(admin_user) }
 
-      it 'returns only approved workers' do
+      it 'returns only workers this admin approved' do
         get '/api/admin/workers'
         expect(response).to have_http_status(:ok)
         names = JSON.parse(response.body).map { |w| w['first_name'] }
         expect(names).to include('Bob')
+        expect(names).not_to include('Sara')
         expect(names).not_to include('Pat')
+      end
+    end
+  end
+
+  describe "GET /api/admin/appointments" do
+    context 'when logged in as admin' do
+      before do
+        appointment_with_admin_worker; appointment_with_other_worker
+        login_as(admin_user)
+      end
+
+      it 'returns only appointments for workers this admin approved' do
+        get '/api/admin/appointments'
+        expect(response).to have_http_status(:ok)
+        ids = JSON.parse(response.body).map { |a| a['id'] }
+        expect(ids).to include(appointment_with_admin_worker.id)
+        expect(ids).not_to include(appointment_with_other_worker.id)
       end
     end
   end
@@ -99,10 +132,11 @@ RSpec.describe "AdminController", type: :request do
   describe "PATCH /api/admin/applications/:id/approve" do
     before { pending_worker; login_as(admin_user) }
 
-    it 'sets the worker status to approved' do
+    it 'sets the worker status to approved and records the approving admin' do
       patch "/api/admin/applications/#{pending_worker.id}/approve"
       expect(response).to have_http_status(:ok)
       expect(pending_worker.reload.status).to eq('approved')
+      expect(pending_worker.reload.approved_by_id).to eq(admin_user.id)
     end
 
     it 'creates an admin message notification for the worker' do

@@ -1,10 +1,15 @@
 module Api
   class ConversationsController < ApplicationController
     def index
+      with_messages = Message.select(:conversation_id)
       conversations = if current_user.client
-        Conversation.where(client_id: current_user.client.id).includes(:support_worker, :messages)
+        Conversation.where(client_id: current_user.client.id)
+                    .where(id: with_messages)
+                    .includes(:support_worker, :messages)
       elsif current_user.support_worker
-        Conversation.where(support_worker_id: current_user.support_worker.id).includes(:client, :messages)
+        Conversation.where(support_worker_id: current_user.support_worker.id)
+                    .where(id: with_messages)
+                    .includes(:client, :messages)
       else
         []
       end
@@ -19,12 +24,13 @@ module Api
 
     def show
       conversation = Conversation.includes(:client, :support_worker, :messages).find(params[:id])
+      authorize_conversation!(conversation)
       render json: conversation.as_json(
         include: {
           client: {},
           support_worker: {},
           messages: { only: %i[id content sender_type sender_id created_at] },
-          appointments: { only: %i[id date duration location notes status] },
+          appointments: { only: %i[id date duration location notes status initiated_by] },
         }
       )
     end
@@ -46,6 +52,7 @@ module Api
 
     def suggest_booking
       conversation = Conversation.includes(:messages).find(params[:id])
+      authorize_conversation!(conversation)
 
       transcript = conversation.messages.order(:created_at).last(12).map do |m|
         "[#{m.sender_type}]: #{decrypt_content(m.content, conversation.id)}"
@@ -71,7 +78,7 @@ module Api
     end
 
     def ai_respond
-      conversation = Conversation.includes(:client, :messages, :appointments, support_worker: :specializations).find(params[:id])
+      conversation = Conversation.includes(:client, :messages, :appointments, support_worker: :specialisations).find(params[:id])
       authorize_conversation!(conversation)
 
       is_client = current_user.client.present?
@@ -79,19 +86,24 @@ module Api
       simulated_person = is_client ? conversation.support_worker : conversation.client
       current_person  = is_client ? conversation.client : conversation.support_worker
 
-      pending_appt = conversation.appointments.find { |a| a.status == 'pending' }
+      pending_appts  = conversation.appointments.select { |a| a.status == 'pending' }
+      approved_appts = conversation.appointments.select { |a| a.status == 'approved' }
+      pending_appt   = pending_appts.first
 
       history = conversation.messages.order(:created_at).map do |m|
         role = m.sender_type == simulated_role ? 'assistant' : 'user'
         { role: role, content: decrypt_content(m.content, conversation.id) }
       end
 
-      return render json: { error: 'No message to respond to' }, status: :unprocessable_entity if history.empty?
+      # If no messages yet, prime the AI to open the conversation
+      if history.empty?
+        history = [{ role: 'user', content: 'Please introduce yourself and start our conversation.' }]
+      elsif history.last[:role] == 'assistant'
+        # In a continuation flow the last saved message is from the AI — add a silent nudge so the API call is valid
+        history << { role: 'user', content: '[continue]' }
+      end
 
-      # In a continuation flow the last saved message is from the AI — add a silent nudge so the API call is valid
-      history << { role: 'user', content: '[continue]' } if history.last[:role] == 'assistant'
-
-      persona = build_persona(simulated_person, simulated_role, current_person, pending_appt)
+      persona = build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts)
 
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
       response = anthropic.messages(parameters: {
@@ -132,43 +144,80 @@ module Api
 
       # Handle approve/decline action
       affected_appt = pending_appt
+      declined_all  = false
       if pending_appt && action == 'approve'
         pending_appt.update!(status: 'approved')
         schedule_reminder(pending_appt)
       elsif pending_appt && action == 'decline'
         pending_appt.update!(status: 'declined')
+      elsif pending_appts.any? && action == 'decline_all'
+        pending_appts.each { |a| a.update!(status: 'declined') }
+        declined_all = true
       elsif action == 'send_invitation' && parsed_action
-        affected_appt = conversation.appointments.create!(
-          date:             parsed_action['date'],
-          duration:         parsed_action['duration'],
-          location:         parsed_action['location'],
-          notes:            parsed_action['notes'],
-          client_id:        conversation.client_id,
-          support_worker_id: conversation.support_worker_id,
-          status:           'pending',
-          conversation_id:  conversation.id
-        )
-        begin
-          appt_time = Time.parse(affected_appt.date.to_s).strftime('%-d %B at %-I:%M %p')
-        rescue
-          appt_time = affected_appt.date.to_s
+        already_exists = conversation.appointments.where(status: 'pending')
+                                     .any? { |a| a.date.to_s.start_with?(parsed_action['date'].to_s[0..15]) }
+        unless already_exists
+          affected_appt = conversation.appointments.create!(
+            date:             parsed_action['date'],
+            duration:         parsed_action['duration'],
+            location:         parsed_action['location'],
+            notes:            parsed_action['notes'],
+            client_id:        conversation.client_id,
+            support_worker_id: conversation.support_worker_id,
+            status:           'pending',
+            conversation_id:  conversation.id,
+            initiated_by:     simulated_role
+          )
+          appt_time = DateTime.parse(parsed_action['date']).strftime('%-d %B at %-I:%M %p') rescue affected_appt.date.to_s
+          conversation.messages.create!(
+            content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
+            sender_type: simulated_role,
+            sender_id: simulated_person.id
+          )
         end
-        conversation.messages.create!(
-          content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
-          sender_type: simulated_role,
-          sender_id: simulated_person.id
-        )
+      elsif action == 'send_recurring_invitations' && parsed_action
+        dates = Array(parsed_action['dates'])
+        existing_pending = conversation.appointments.where(status: 'pending').pluck(:date).map { |d| d.to_s[0..15] }
+        new_dates = dates.reject { |d| existing_pending.include?(d.to_s[0..15]) }
+        created_appts = new_dates.map do |date|
+          appt = conversation.appointments.create!(
+            date:             date,
+            duration:         parsed_action['duration'],
+            location:         parsed_action['location'],
+            notes:            parsed_action['notes'],
+            client_id:        conversation.client_id,
+            support_worker_id: conversation.support_worker_id,
+            status:           'pending',
+            conversation_id:  conversation.id,
+            initiated_by:     simulated_role
+          )
+          appt_time = DateTime.parse(date).strftime('%-d %B at %-I:%M %p') rescue appt.date.to_s
+          conversation.messages.create!(
+            content: encrypt_content("[SYS]✓ Appointment invitation sent for #{appt_time}.", conversation.id),
+            sender_type: simulated_role,
+            sender_id: simulated_person.id
+          )
+          appt
+        end
       end
 
       render json: {
         message: msg.as_json(only: %i[id content sender_type sender_id created_at]).merge('content' => reply_clean),
         action: action,
-        appointment: affected_appt&.reload&.as_json(only: %i[id status date duration location notes]),
+        appointment: affected_appt&.reload&.as_json(only: %i[id status date duration location notes initiated_by]),
+        appointments: created_appts&.map { |a| a.reload.as_json(only: %i[id status date duration location notes initiated_by]) },
+        declined_all: declined_all,
         continue: will_continue,
       }
     end
 
     private
+
+    def authorize_conversation!(conversation)
+      authorized = current_user.client&.id == conversation.client_id ||
+                   current_user.support_worker&.id == conversation.support_worker_id
+      render json: { error: 'Forbidden' }, status: :forbidden and return unless authorized
+    end
 
     ENCRYPTION_CONTEXT = 'support-app-messages-v1'
 
@@ -221,7 +270,7 @@ module Api
       'ENC:' + Base64.strict_encode64(iv + ciphertext + tag)
     end
 
-    def build_persona(simulated_person, simulated_role, current_person, pending_appt)
+    def build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts = [])
       name = "#{simulated_person.first_name} #{simulated_person.last_name}"
       other_name = current_person.first_name
 
@@ -231,8 +280,9 @@ module Api
         Today is #{today}.
         When you and #{other_name} have clearly agreed on a date, time, location and duration for an appointment,
         proactively offer to send a formal invitation. Once confirmed, your ENTIRE response must be ONLY this JSON with no surrounding text whatsoever:
-        {"message": "your friendly confirmation message", "action": "send_invitation", "date": "YYYY-MM-DDTHH:MM:00+HH:MM", "duration": <minutes>, "location": "place"}
-        Use the actual agreed date, time and location. Include the correct UTC offset for Sydney time (+10:00).
+        For a single appointment: {"message": "your friendly confirmation message", "action": "send_invitation", "date": "YYYY-MM-DDTHH:MM:00+HH:MM", "duration": <minutes>, "location": "place"}
+        For multiple recurring appointments (e.g. "3 more weekly sessions"): {"message": "your friendly confirmation message", "action": "send_recurring_invitations", "dates": ["YYYY-MM-DDTHH:MM:00+HH:MM", ...], "duration": <minutes>, "location": "place"}
+        Use the actual agreed date(s), time and location. Include the correct UTC offset for Sydney time (+10:00).
         Do NOT write any text before or after the JSON object.
       INV
 
@@ -255,19 +305,19 @@ module Api
 
       sw = simulated_role == 'support_worker' ? simulated_person : current_person
       client_record = simulated_role == 'support_worker' ? current_person : simulated_person
-      sw_specializations = sw.respond_to?(:specializations) ? sw.specializations.map(&:name).join(', ').presence || 'not listed' : 'not listed'
+      sw_specialisations = sw.respond_to?(:specialisations) ? sw.specialisations.map(&:name).join(', ').presence || 'not listed' : 'not listed'
       client_needs = client_record.respond_to?(:health_conditions) ? client_record.health_conditions.presence || 'not specified' : 'not specified'
 
       base = if simulated_role == 'support_worker'
         <<~P
           You are #{name} (the SUPPORT WORKER). You are chatting with #{other_name}, who is your CLIENT.
           #{identity_block}
-          Your details — Location: #{simulated_person.location.presence || 'not specified'}, Specializations: #{sw_specializations}, Bio: #{simulated_person.bio.presence || 'experienced support worker'}.
+          Your details — Location: #{simulated_person.location.presence || 'not specified'}, Specialisations: #{sw_specialisations}, Bio: #{simulated_person.bio.presence || 'experienced support worker'}.
           #{other_name}'s details — Location: #{current_person.location.presence || 'not specified'}, Health conditions / needs: #{client_needs}.
 
           IMPORTANT — assess these two things IN YOUR OPENING MESSAGE before anything else:
           1. Distance: Using your knowledge of Australian geography, determine whether your location (#{simulated_person.location.presence || 'unspecified'}) and #{other_name}'s location (#{current_person.location.presence || 'unspecified'}) are more than approximately 100 km apart. If they are, you MUST decline in your very first message — say you're too far away to provide reliable support and suggest they use the location filter on this app (Suppova) to find someone nearby. Do NOT mention external platforms. Do not proceed to discuss scheduling or needs.
-          2. Specialization fit: If #{other_name}'s needs (#{client_needs}) clearly fall outside your specializations (#{sw_specializations}), decline politely in your first message — explain this isn't your area and they'd be better served by someone with the right background.
+          2. Specialisation fit: If #{other_name}'s needs (#{client_needs}) clearly fall outside your specialisations (#{sw_specialisations}), decline politely in your first message — explain this isn't your area and they'd be better served by someone with the right background.
           Only if both location and fit are acceptable should you move on to a warm introduction and ask about their needs.
 
           As the conversation moves toward scheduling, ask whether #{other_name} would prefer you to come to them or meet somewhere nearby. Do not assume a location. Once confirmed, use that in the appointment.
@@ -275,18 +325,18 @@ module Api
           Ask questions rather than making assumptions about what #{other_name} needs. Let them lead.
           When it feels natural, proactively ask about #{other_name}'s availability — what days and times work for them.
           If you intend to immediately follow up with more content, end your message with [CONTINUE] on its own line.
-          #{invitation_instructions}
+          #{booking_section}
         P
       else
         <<~P
           You are #{name} (the CLIENT). You are chatting with #{other_name}, who is your SUPPORT WORKER.
           #{identity_block}
           Your details — Location: #{simulated_person.location.presence || 'not specified'}, Health conditions / needs: #{client_needs}.
-          #{other_name}'s details — Location: #{current_person.location.presence || 'not specified'}, Specializations: #{sw_specializations}.
+          #{other_name}'s details — Location: #{current_person.location.presence || 'not specified'}, Specialisations: #{sw_specialisations}.
 
           IMPORTANT — assess these two things IN YOUR OPENING MESSAGE before anything else:
           1. Distance: If #{other_name}'s location (#{current_person.location.presence || 'unspecified'}) is more than approximately 100 km from yours (#{simulated_person.location.presence || 'unspecified'}), tell them straight away that it's too far — you don't need to be polite about it. Something like "that's pretty far, I don't think that's going to work for me" is fine. You don't need to suggest alternatives.
-          2. Specialization fit: If their specializations (#{sw_specializations}) clearly don't match what you need (#{client_needs}), say so directly in your first message — something like "I need support with X and that doesn't seem to be your area."
+          2. Specialisation fit: If their specialisations (#{sw_specialisations}) clearly don't match what you need (#{client_needs}), say so directly in your first message — something like "I need support with X and that doesn't seem to be your area."
           Only if both location and fit are acceptable should you start a normal conversation.
 
           As the conversation moves toward scheduling, raise the location question — ask whether they'd prefer to come to you or suggest meeting halfway. If you suggest a halfway point, name a real, specific suburb between both locations — do not invent a place.
@@ -294,19 +344,27 @@ module Api
           You are a person, not a patient. If #{other_name}'s tone feels patronising or assumes what you need without asking, push back naturally.
           When it feels natural, mention your availability — days, times, frequency.
           If you intend to immediately follow up with more content, end your message with [CONTINUE] on its own line.
-          #{invitation_instructions}
+          #{booking_section}
         P
       end
 
-      if pending_appt
-        appt_time = Time.parse(pending_appt.date.to_s).strftime('%A, %b %-d at %-I:%M %p') rescue pending_appt.date.to_s
+      if pending_appts.any?
+        appt_list = pending_appts.map do |a|
+          label = Time.parse(a.date.to_s).strftime('%A, %b %-d at %-I:%M %p') rescue a.date.to_s
+          "- #{label} (#{a.duration} min, #{a.location})"
+        end.join("\n")
+
         base += <<~P
 
-          There is a pending appointment invitation for #{appt_time} (#{pending_appt.duration} min, #{pending_appt.location}).
-          If it suits you, respond naturally and include a JSON decision at the end of your reply like this:
-          {"message": "your reply here", "action": "approve"}
-          Or to decline: {"message": "your reply here", "action": "decline"}
-          Only include the JSON if you are making a decision about the appointment.
+          There #{pending_appts.count == 1 ? 'is' : 'are'} #{pending_appts.count} pending appointment invitation(s):
+          #{appt_list}
+
+          Do NOT create any new appointment invitations while invitations are pending.
+          If #{other_name} asks you to approve or decline any of these — or you decide to — include a JSON action at the end of your reply:
+          - Approve the first pending invitation: {"message": "your reply", "action": "approve"}
+          - Decline the first pending invitation: {"message": "your reply", "action": "decline"}
+          - Decline ALL remaining invitations: {"message": "your reply", "action": "decline_all"}
+          Only include the JSON when actually taking an action.
         P
       end
 

@@ -1,6 +1,6 @@
 # Suppova — Backend
 
-Rails API for a portfolio project inspired by [Mable](https://mable.com.au), a platform that connects people living with disability to independent support workers.
+Rails API for Suppova — a full-stack NDIS support platform connecting clients with verified support workers.
 
 **Live API:** [https://api.suppova.com](https://api.suppova.com)
 

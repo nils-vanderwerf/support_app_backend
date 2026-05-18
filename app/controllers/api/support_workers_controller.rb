@@ -1,27 +1,30 @@
 module Api
   class SupportWorkersController < ApplicationController
     def index
-      workers = if current_user&.is_admin
-        SupportWorker.includes(:specializations).all
+      return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.client || current_user&.admin?
+      workers = if current_user&.admin?
+        SupportWorker.includes(:specialisations).all
       else
-        SupportWorker.includes(:specializations).where(status: 'approved')
+        SupportWorker.includes(:specialisations).where(status: 'approved')
       end
-      render json: workers.as_json(include: :specializations)
+      render json: workers.as_json(include: :specialisations, methods: [:age])
     end
 
     def show
-      worker = SupportWorker.includes(:specializations).find(params[:id])
-      unless current_user&.is_admin || worker.status == 'approved'
+      worker = SupportWorker.includes(:specialisations).find(params[:id])
+      is_own_profile = current_user&.support_worker&.id == worker.id
+      return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.client || current_user&.admin? || is_own_profile
+      unless current_user&.admin? || worker.status == 'approved' || is_own_profile
         return render json: { error: 'Not found' }, status: :not_found
       end
-      render json: worker.as_json(include: :specializations)
+      render json: worker.as_json(include: :specialisations, methods: [:age])
     end
 
     def update
       worker = SupportWorker.find(params[:id])
       return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.support_worker&.id == worker.id
       if worker.update(support_worker_params)
-        render json: worker.as_json(include: :specializations, methods: [:age])
+        render json: worker.as_json(include: :specialisations, methods: [:age])
       else
         render json: { errors: worker.errors.full_messages }, status: :unprocessable_entity
       end

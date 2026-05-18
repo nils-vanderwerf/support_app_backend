@@ -55,8 +55,8 @@ RSpec.describe SupportWorker, type: :model do
       expect(SupportWorker.reflect_on_association(:appointments).macro).to eq(:has_many)
     end
 
-    it 'has and belongs to many specializations' do
-      expect(SupportWorker.reflect_on_association(:specializations).macro).to eq(:has_and_belongs_to_many)
+    it 'has and belongs to many specialisations' do
+      expect(SupportWorker.reflect_on_association(:specialisations).macro).to eq(:has_and_belongs_to_many)
     end
   end
 end

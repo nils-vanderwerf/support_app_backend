@@ -94,15 +94,15 @@ RSpec.describe 'ConversationsController', type: :request do
       expect(persona).to include('Surry Hills, Sydney')
     end
 
-    # Support worker — specialization fit
-    it 'instructs the SW to check specialization fit in the opening message' do
+    # Support worker — specialisation fit
+    it 'instructs the SW to check specialisation fit in the opening message' do
       persona = controller_instance.send(:build_persona, sw_near, 'support_worker', client, [], [])
-      expect(persona).to include('Specialization fit')
+      expect(persona).to include('Specialisation fit')
     end
 
-    it 'includes SW specializations and client needs in the SW persona' do
+    it 'includes SW specialisations and client needs in the SW persona' do
       persona = controller_instance.send(:build_persona, sw_near, 'support_worker', client, [], [])
-      expect(persona).to include('Specializations')
+      expect(persona).to include('Specialisations')
       expect(persona).to include('needs')
     end
 
@@ -118,10 +118,10 @@ RSpec.describe 'ConversationsController', type: :request do
       expect(persona).to include("don't need to be polite")
     end
 
-    # Client — specialization fit
-    it 'instructs the client to check specialization fit in the opening message' do
+    # Client — specialisation fit
+    it 'instructs the client to check specialisation fit in the opening message' do
       persona = controller_instance.send(:build_persona, client, 'client', sw_near, [], [])
-      expect(persona).to include('Specialization fit')
+      expect(persona).to include('Specialisation fit')
     end
   end
 end

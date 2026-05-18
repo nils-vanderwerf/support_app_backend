@@ -9,7 +9,6 @@ one:
   phone: MyString
   email: MyString
   availability: MyString
-  specializations: MyString
   location: MyString
 
 two:
@@ -21,5 +20,4 @@ two:
   phone: MyString
   email: MyString
   availability: MyString
-  specializations: MyString
   location: MyString

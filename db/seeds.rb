@@ -19,6 +19,7 @@ end
 # ---------------------------------------------------------------------------
 clients_data = [
   {
+    email: 'elena.martinez@example.com',
     first_name: 'Elena', last_name: 'Martinez',
     date_of_birth: Date.new(1978, 4, 12),
     gender: 'Female',
@@ -31,6 +32,7 @@ clients_data = [
     emergency_contact_first_name: 'Miguel', emergency_contact_last_name: 'Martinez', emergency_contact_phone: '0431 167 474',
   },
   {
+    email: 'raj.patel@example.com',
     first_name: 'Raj', last_name: 'Patel',
     date_of_birth: Date.new(1990, 9, 3),
     gender: 'Male',
@@ -43,6 +45,7 @@ clients_data = [
     emergency_contact_first_name: 'Anita', emergency_contact_last_name: 'Patel', emergency_contact_phone: '0423 324 141',
   },
   {
+    email: 'amina.ali@example.com',
     first_name: 'Amina', last_name: 'Ali',
     date_of_birth: Date.new(1985, 7, 22),
     gender: 'Female',
@@ -55,6 +58,7 @@ clients_data = [
     emergency_contact_first_name: 'Yusuf', emergency_contact_last_name: 'Ali', emergency_contact_phone: '0425 542 929',
   },
   {
+    email: 'thomas.rivera@example.com',
     first_name: 'Thomas', last_name: 'Rivera',
     date_of_birth: Date.new(1972, 11, 8),
     gender: 'Male',
@@ -67,6 +71,7 @@ clients_data = [
     emergency_contact_first_name: 'Lucia', emergency_contact_last_name: 'Rivera', emergency_contact_phone: '0427 634 848',
   },
   {
+    email: 'mai.nguyen@example.com',
     first_name: 'Mai', last_name: 'Nguyen',
     date_of_birth: Date.new(1995, 2, 17),
     gender: 'Female',
@@ -79,6 +84,7 @@ clients_data = [
     emergency_contact_first_name: 'Duy', emergency_contact_last_name: 'Nguyen', emergency_contact_phone: '0429 869 494',
   },
   {
+    email: 'sophie.chen@example.com',
     first_name: 'Sophie', last_name: 'Chen',
     date_of_birth: Date.new(1999, 6, 30),
     gender: 'Female',
@@ -105,7 +111,11 @@ clients_data = [
   },
 ]
 
-clients.each { |c| Client.create!(c) }
+clients_data.each do |data|
+  email = data.delete(:email)
+  user = User.create!(email: email, password: 'password123', role: :client)
+  Client.create!(data.merge(user: user))
+end
 puts "Clients seeded: #{Client.count}"
 
 # Admin created early so workers can reference approved_by_id
@@ -113,19 +123,20 @@ admin_user = User.create!(email: 'admin@example.com', password: 'password123', r
 puts "Admin seeded."
 
 # ---------------------------------------------------------------------------
-# Specializations
+# Specialisations
 # ---------------------------------------------------------------------------
-specializations = [
+specialisations = [
   'Child Care', 'Elderly Care', 'Disability Support', 'Mental Health Support',
   'Rehabilitation Support', 'Community Support', 'Physical Therapy', 'Healthcare Support'
 ]
-specialization_objects = specializations.map { |name| Specialization.find_or_create_by(name: name) }
+specialisation_objects = specialisations.map { |name| Specialisation.find_or_create_by(name: name) }
 
 # ---------------------------------------------------------------------------
 # Support Workers
 # ---------------------------------------------------------------------------
 support_workers_data = [
   {
+    email: 'olivia.williams@example.com',
     first_name: 'Olivia', last_name: 'Williams',
     date_of_birth: Date.new(1988, 5, 14),
     gender: 'Female',
@@ -139,9 +150,10 @@ support_workers_data = [
     wwcc_number: 'WWC0294817E',
     wwcc_expiry: Date.new(2027, 3, 20),
     agent_recommendation: 'Approved — strong communication, verified credentials, 7 years experience in aged care and disability. Highly recommended.',
-    specializations: specialization_objects.select { |s| ['Elderly Care', 'Disability Support', 'Healthcare Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Elderly Care', 'Disability Support', 'Healthcare Support'].include?(s.name) },
   },
   {
+    email: 'james.smith@example.com',
     first_name: 'James', last_name: 'Smith',
     date_of_birth: Date.new(1984, 11, 2),
     gender: 'Male',
@@ -155,9 +167,10 @@ support_workers_data = [
     wwcc_number: 'WWC0187634E',
     wwcc_expiry: Date.new(2026, 11, 5),
     agent_recommendation: 'Approved — valid credentials, strong background in mental health and community support. Recommended for approval.',
-    specializations: specialization_objects.select { |s| ['Mental Health Support', 'Rehabilitation Support', 'Community Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Mental Health Support', 'Rehabilitation Support', 'Community Support'].include?(s.name) },
   },
   {
+    email: 'priya.sharma@example.com',
     first_name: 'Priya', last_name: 'Sharma',
     date_of_birth: Date.new(1991, 8, 25),
     gender: 'Female',
@@ -171,7 +184,7 @@ support_workers_data = [
     wwcc_number: 'WWC0341209E',
     wwcc_expiry: Date.new(2027, 6, 14),
     agent_recommendation: 'Approved — healthcare credentials verified, physical therapy background confirmed. Clear to work.',
-    specializations: specialization_objects.select { |s| ['Physical Therapy', 'Healthcare Support', 'Disability Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Physical Therapy', 'Healthcare Support', 'Disability Support'].include?(s.name) },
   },
   {
     email: 'liam.oconnor@example.com',
@@ -188,9 +201,10 @@ support_workers_data = [
     wwcc_number: 'WWC0229441E',
     wwcc_expiry: Date.new(2026, 4, 22),
     agent_recommendation: 'Approved — solid community support background. Note: police check expiring Dec 2025, renewal recommended.',
-    specializations: specialization_objects.select { |s| ['Community Support', 'Disability Support', 'Child Care'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Community Support', 'Disability Support', 'Child Care'].include?(s.name) },
   },
   {
+    email: 'mei.zhang@example.com',
     first_name: 'Mei', last_name: 'Zhang',
     date_of_birth: Date.new(1983, 12, 7),
     gender: 'Female',
@@ -204,9 +218,10 @@ support_workers_data = [
     wwcc_number: 'WWC0398812E',
     wwcc_expiry: Date.new(2027, 9, 17),
     agent_recommendation: 'Approved — extensive ASD and child care background, exemplary record. Highly recommended.',
-    specializations: specialization_objects.select { |s| ['Child Care', 'Community Support', 'Mental Health Support', 'Disability Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Child Care', 'Community Support', 'Mental Health Support', 'Disability Support'].include?(s.name) },
   },
   {
+    email: 'daniel.torres@example.com',
     first_name: 'Daniel', last_name: 'Torres',
     date_of_birth: Date.new(1989, 7, 14),
     gender: 'Male',
@@ -220,9 +235,10 @@ support_workers_data = [
     wwcc_number: 'WWC0276530E',
     wwcc_expiry: Date.new(2026, 12, 11),
     agent_recommendation: 'Approved — rehabilitation credentials verified. Recommended.',
-    specializations: specialization_objects.select { |s| ['Rehabilitation Support', 'Physical Therapy', 'Healthcare Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Rehabilitation Support', 'Physical Therapy', 'Healthcare Support'].include?(s.name) },
   },
   {
+    email: 'aisha.hassan@example.com',
     first_name: 'Aisha', last_name: 'Hassan',
     date_of_birth: Date.new(1993, 1, 28),
     gender: 'Female',
@@ -236,9 +252,10 @@ support_workers_data = [
     wwcc_number: 'WWC0412876E',
     wwcc_expiry: Date.new(2027, 7, 30),
     agent_recommendation: 'Approved — trauma-informed background, culturally safe practice noted. Clear to work.',
-    specializations: specialization_objects.select { |s| ['Mental Health Support', 'Community Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Mental Health Support', 'Community Support'].include?(s.name) },
   },
   {
+    email: 'nathan.kowalski@example.com',
     first_name: 'Nathan', last_name: 'Kowalski',
     date_of_birth: Date.new(1980, 10, 15),
     gender: 'Male',
@@ -252,7 +269,7 @@ support_workers_data = [
     wwcc_number: 'WWC0163345E',
     wwcc_expiry: Date.new(2026, 10, 8),
     agent_recommendation: 'Approved — 10 years experience, clean record across multiple states. Highly recommended.',
-    specializations: specialization_objects.select { |s| ['Elderly Care', 'Disability Support', 'Community Support', 'Healthcare Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Elderly Care', 'Disability Support', 'Community Support', 'Healthcare Support'].include?(s.name) },
   },
   {
     email: 'tom.nguyen@example.com',
@@ -269,7 +286,7 @@ support_workers_data = [
     wwcc_number: 'WWC0462183E',
     wwcc_expiry: Date.new(2027, 10, 2),
     agent_recommendation: 'Approved — strong disability support background, bilingual capability noted. Credentials valid. Highly recommended.',
-    specializations: specialization_objects.select { |s| ['Disability Support', 'Community Support', 'Rehabilitation Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Disability Support', 'Community Support', 'Rehabilitation Support'].include?(s.name) },
   },
   {
     email: 'sarah.okafor@example.com',
@@ -286,7 +303,7 @@ support_workers_data = [
     wwcc_number: 'WWC0335671E',
     wwcc_expiry: Date.new(2027, 1, 28),
     agent_recommendation: 'Approved — dual diagnosis experience is a strong differentiator. Credentials in order. Recommended.',
-    specializations: specialization_objects.select { |s| ['Disability Support', 'Mental Health Support', 'Community Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Disability Support', 'Mental Health Support', 'Community Support'].include?(s.name) },
   },
   {
     email: 'chris.deluca@example.com',
@@ -303,7 +320,7 @@ support_workers_data = [
     wwcc_number: 'WWC0521034E',
     wwcc_expiry: Date.new(2028, 6, 5),
     agent_recommendation: 'Approved — Certificate IV verified, clean record, good availability. Suitable for physical disability and personal care roles.',
-    specializations: specialization_objects.select { |s| ['Disability Support', 'Healthcare Support', 'Physical Therapy'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Disability Support', 'Healthcare Support', 'Physical Therapy'].include?(s.name) },
   },
   {
     email: 'grace.ali@example.com',
@@ -320,7 +337,7 @@ support_workers_data = [
     wwcc_number: 'WWC0408892E',
     wwcc_expiry: Date.new(2027, 12, 14),
     agent_recommendation: 'Approved — 9 years experience, SIL and complex behaviour support background. Highly recommended for clients with complex needs.',
-    specializations: specialization_objects.select { |s| ['Disability Support', 'Community Support', 'Mental Health Support', 'Healthcare Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Disability Support', 'Community Support', 'Mental Health Support', 'Healthcare Support'].include?(s.name) },
   },
 ]
 
@@ -347,7 +364,7 @@ pending_workers_data = [
     wwcc_number: 'WWC0501923E',
     wwcc_expiry: Date.new(2028, 5, 11),
     agent_recommendation: 'Approved — nursing background adds strong clinical credibility. Police check and WWCC both valid. Recommended for approval.',
-    specializations: specialization_objects.select { |s| ['Healthcare Support', 'Disability Support', 'Rehabilitation Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Healthcare Support', 'Disability Support', 'Rehabilitation Support'].include?(s.name) },
   },
   {
     email: 'aisha.koroma@example.com',
@@ -364,7 +381,7 @@ pending_workers_data = [
     wwcc_number: 'WWC0489274E',
     wwcc_expiry: Date.new(2027, 8, 16),
     agent_recommendation: 'Conditionally approved — credentials verified and communication is strong. Limited experience (2 years) but youth mental health focus is genuine. Recommend pairing with an experienced worker initially.',
-    specializations: specialization_objects.select { |s| ['Mental Health Support', 'Child Care', 'Community Support'].include?(s.name) },
+    specialisations: specialisation_objects.select { |s| ['Mental Health Support', 'Child Care', 'Community Support'].include?(s.name) },
   },
 ]
 

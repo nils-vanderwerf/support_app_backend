@@ -5,7 +5,7 @@ RSpec.describe "POST /api/users", type: :request do
     {
       user: { email: 'test_client@test.com', password: 'password123', first_name: 'Jane', last_name: 'Doe', middle_name: '' },
       role: 'client',
-      client: { age: 30, gender: 'Female', phone: '0400000000', location: 'Sydney', bio: 'Test bio' }
+      client: { first_name: 'Jane', last_name: 'Doe', age: 30, gender: 'Female', phone: '0400000000', location: 'Sydney', bio: 'Test bio' }
     }
   end
    let(:valid_support_worker_params) do
@@ -64,6 +64,7 @@ RSpec.describe "POST /api/users", type: :request do
   end
   it "returns bad request if user params are missing" do
     post api_users_path, params: { role: 'client', client: { age: 30 } }
+    expect(response).to have_http_status(:bad_request)
     expect(response).to have_http_status(:bad_request)
   end
 end

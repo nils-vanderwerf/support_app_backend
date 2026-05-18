@@ -79,7 +79,7 @@ RSpec.describe "ClientsController", type: :request do
       end
     end
 
-    context 'when logged in as an approved support worker' do
+    context 'when logged in as an approved support worker without a confirmed appointment' do
       before { client; support_worker; post api_login_path, params: { email: sw_user.email, password: 'password123' } }
 
       it 'returns limited fields only' do

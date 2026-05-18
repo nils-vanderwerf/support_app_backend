@@ -39,11 +39,11 @@ module Api
 
     def recently_accepted
       appointments = if current_user.client
-        Appointment.where(client_id: current_user.client.id, status: 'approved')
+        Appointment.active.where(client_id: current_user.client.id, status: 'approved')
                    .where('updated_at > ?', 24.hours.ago)
                    .includes(:client, :support_worker)
       elsif current_user.support_worker
-        Appointment.where(support_worker_id: current_user.support_worker.id, status: 'approved')
+        Appointment.active.where(support_worker_id: current_user.support_worker.id, status: 'approved')
                    .where('updated_at > ?', 24.hours.ago)
                    .includes(:client, :support_worker)
       else
@@ -52,8 +52,25 @@ module Api
       render json: appointments.as_json(include: [:client, :support_worker])
     end
 
+    def bulk_approve
+      ids = Array(params[:appointment_ids])
+      appointments = Appointment.where(id: ids, status: 'pending')
+                                .select { |appt| party_to_appointment?(appt) }
+      ActiveRecord::Base.transaction do
+        appointments.each do |appointment|
+          appointment.update!(status: 'approved')
+          schedule_reminder(appointment)
+          post_status_message(appointment, 'approved')
+        end
+      end
+      render json: { approved_count: appointments.count }
+    rescue => e
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
     def approve
       appointment = Appointment.find(params[:id])
+      return unless authorize_appointment!(appointment)
       appointment.update!(status: 'approved')
       schedule_reminder(appointment)
       post_status_message(appointment, 'approved')
@@ -62,6 +79,7 @@ module Api
 
     def decline
       appointment = Appointment.find(params[:id])
+      return unless authorize_appointment!(appointment)
       appointment.update!(status: 'declined')
       post_status_message(appointment, 'declined')
       render json: appointment.as_json(include: [:client, :support_worker])
@@ -93,8 +111,8 @@ module Api
       conversation = Conversation.find(appointment.conversation_id)
       actor = current_user.support_worker || current_user.client
       sender_type = current_user.support_worker ? 'support_worker' : 'client'
-      actor_name = "#{actor.first_name} #{actor.last_name}"
-      appt_time = appointment.date.strftime('%-d %B at %-I:%M %p') rescue appointment.date.to_s
+      tz = ActiveSupport::TimeZone[params[:timezone].to_s] || Time.zone
+      appt_time = appointment.date.in_time_zone(tz).strftime('%-d %B at %-I:%M %p') rescue appointment.date.to_s
 
       text = if status == 'approved'
         "[SYS]✓ Appointment confirmed for #{appt_time}."
@@ -116,7 +134,25 @@ module Api
     end
 
     def appointment_params
-      params.require(:appointment).permit(:date, :duration, :location, :notes, :client_id, :support_worker_id, :status, :conversation_id)
+      params.require(:appointment).permit(:date, :duration, :location, :notes, :client_id, :support_worker_id, :status, :conversation_id, :initiated_by)
+    end
+
+    def require_login
+      render json: { errors: 'Must be logged in' }, status: :unauthorized unless current_user
+    end
+
+    def party_to_appointment?(appointment)
+      appointment.client_id == current_user.client&.id ||
+        appointment.support_worker_id == current_user.support_worker&.id
+    end
+
+    def authorize_appointment!(appointment)
+      if party_to_appointment?(appointment)
+        true
+      else
+        render json: { errors: 'Forbidden' }, status: :forbidden
+        false
+      end
     end
   end
 end

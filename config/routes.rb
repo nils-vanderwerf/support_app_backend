@@ -19,6 +19,7 @@ Rails.application.routes.draw do
       collection do
         get :pending
         get :recently_accepted
+        patch :bulk_approve
       end
       member do
         patch :approve
