@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_18_212343) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_27_011349) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -117,6 +117,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_18_212343) do
     t.date "wwcc_expiry"
     t.text "admin_note"
     t.datetime "rejected_at"
+    t.string "state"
     t.index ["user_id"], name: "index_support_workers_on_user_id"
   end
 

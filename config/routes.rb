@@ -40,6 +40,7 @@ Rails.application.routes.draw do
     post 'chat_simulation', to: 'chat_simulation#simulate'
     get 'dashboard', to: 'dashboard#show'
     resources :support_workers
+    post 'vetting/submit', to: 'vetting#submit'
     post 'vetting/chat', to: 'vetting#chat'
     get  'vetting/status', to: 'vetting#status'
     get  'admin_messages', to: 'admin_messages#index'

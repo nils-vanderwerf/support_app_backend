@@ -59,6 +59,40 @@ module Api
       render json: { error: e.message }, status: :internal_server_error
     end
 
+    def submit
+      return render json: { error: 'Unauthorized' }, status: :unauthorized unless current_user
+      worker = current_user.support_worker
+      return render json: { error: 'Forbidden' }, status: :forbidden unless worker
+
+      state              = params[:state].to_s.downcase
+      police_check_num   = params[:police_check_number].to_s.strip.upcase
+      wwcc_num           = params[:wwcc_number].to_s.strip.upcase
+      police_check_expiry = Date.parse(params[:police_check_expiry].to_s)
+      wwcc_expiry         = Date.parse(params[:wwcc_expiry].to_s)
+
+      errors = {}
+      errors[:state]               = 'Invalid state' unless WwccValidator::STATES.include?(state)
+      errors[:police_check_number] = 'Must be exactly 10 alphanumeric characters (ACIC format)' unless PoliceCheckValidator.valid?(police_check_num)
+      errors[:police_check_expiry] = 'Must be a future date' unless police_check_expiry > Date.today
+      errors[:wwcc_number]         = "Invalid format for #{state.upcase}" unless WwccValidator.valid?(state, wwcc_num)
+      errors[:wwcc_expiry]         = 'Must be a future date' unless wwcc_expiry > Date.today
+
+      return render json: { errors: errors }, status: :unprocessable_entity if errors.any?
+
+      worker.update!(
+        state:               state,
+        police_check_number: police_check_num,
+        police_check_expiry: police_check_expiry,
+        wwcc_number:         wwcc_num,
+        wwcc_expiry:         wwcc_expiry,
+        status:              'approved'
+      )
+
+      render json: { status: 'approved' }
+    rescue ArgumentError
+      render json: { errors: { base: 'Invalid date format' } }, status: :unprocessable_entity
+    end
+
     def status
       return render json: { error: 'Unauthorized' }, status: :unauthorized unless current_user
       worker = current_user.support_worker

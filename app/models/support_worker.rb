@@ -6,6 +6,9 @@ class SupportWorker < ApplicationRecord
   validates :first_name, :last_name, :phone, :email, :location, presence: true
   validates :email, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :status, inclusion: { in: %w[pending approved rejected] }
+  validates :state, inclusion: { in: WwccValidator::STATES }, allow_nil: true
+
+  enum :state, WwccValidator::STATES.index_with(&:itself), prefix: :state
 
   scope :approved, -> { where(status: 'approved') }
   scope :pending_approval, -> { where(status: 'pending') }

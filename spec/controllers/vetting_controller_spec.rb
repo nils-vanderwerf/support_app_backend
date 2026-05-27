@@ -82,6 +82,78 @@ RSpec.describe "VettingController", type: :request do
     end
   end
 
+  describe "POST /api/vetting/submit" do
+    let(:valid_params) do
+      {
+        state:               'nsw',
+        police_check_number: 'ABC1234567',
+        police_check_expiry: 2.years.from_now.to_date.to_s,
+        wwcc_number:         'WWC1234567E',
+        wwcc_expiry:         2.years.from_now.to_date.to_s,
+      }
+    end
+
+    context 'when unauthenticated' do
+      it 'returns unauthorized' do
+        post '/api/vetting/submit', params: valid_params
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when logged in as a user without a support worker profile' do
+      before { plain_user; login_as(plain_user) }
+
+      it 'returns forbidden' do
+        post '/api/vetting/submit', params: valid_params
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'when logged in as a support worker' do
+      before { support_worker; login_as(sw_user) }
+
+      it 'approves the worker and saves check details with valid params' do
+        post '/api/vetting/submit', params: valid_params
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['status']).to eq('approved')
+        support_worker.reload
+        expect(support_worker.status).to eq('approved')
+        expect(support_worker.state).to eq('nsw')
+        expect(support_worker.police_check_number).to eq('ABC1234567')
+        expect(support_worker.wwcc_number).to eq('WWC1234567E')
+      end
+
+      it 'returns errors for an invalid police check number' do
+        post '/api/vetting/submit', params: valid_params.merge(police_check_number: 'SHORT')
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(JSON.parse(response.body)['errors']['police_check_number']).to be_present
+      end
+
+      it 'returns errors for a WWCC number that does not match the state pattern' do
+        post '/api/vetting/submit', params: valid_params.merge(wwcc_number: 'BADFORMAT')
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(JSON.parse(response.body)['errors']['wwcc_number']).to be_present
+      end
+
+      it 'returns errors for an expired police check' do
+        post '/api/vetting/submit', params: valid_params.merge(police_check_expiry: 1.year.ago.to_date.to_s)
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(JSON.parse(response.body)['errors']['police_check_expiry']).to be_present
+      end
+
+      it 'returns errors for an invalid state' do
+        post '/api/vetting/submit', params: valid_params.merge(state: 'invalid')
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(JSON.parse(response.body)['errors']['state']).to be_present
+      end
+
+      it 'returns errors for a malformed date' do
+        post '/api/vetting/submit', params: valid_params.merge(police_check_expiry: 'not-a-date')
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+    end
+  end
+
   describe "POST /api/vetting/chat" do
     context 'when unauthenticated' do
       it 'returns unauthorized' do
