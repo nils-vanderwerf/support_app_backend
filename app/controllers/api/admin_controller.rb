@@ -83,9 +83,8 @@ module Api
     private
 
     def require_admin
-      unless current_user&.admin?
-        render json: { error: 'Forbidden' }, status: :forbidden
-      end
+      return render json: { error: 'Unauthorized' }, status: :unauthorized unless current_user
+      render json: { error: 'Forbidden' }, status: :forbidden unless current_user.admin?
     end
   end
 end
