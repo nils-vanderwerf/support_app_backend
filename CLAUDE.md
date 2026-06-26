@@ -58,5 +58,4 @@ New migrations run automatically on deploy via `db:migrate`. Data cleanup logic 
 ## Working style
 
 - This is a learning project. For non-trivial features, ask questions before writing code so the developer can think through the approach first. For bug fixes, small cleanups, and spec additions it's fine to just do it.
-- Always write specs for feature changes without being asked.
 - When running parallel fixes, use git worktrees (`isolation: "worktree"` in agent calls) to avoid conflicts.
