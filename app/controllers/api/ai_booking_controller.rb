@@ -16,6 +16,7 @@ module Api
       timezone  = params[:timezone].presence || 'UTC'
 
       @conversation_id = nil
+      all_tool_calls   = []
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
 
       loop do
@@ -30,6 +31,7 @@ module Api
         tool_uses = response['content'].select { |b| b['type'] == 'tool_use' }
 
         if tool_uses.any?
+          tool_uses.each { |tu| all_tool_calls << { name: tu['name'], input: tu['input'] } }
           tool_results = tool_uses.map { |tu| execute_tool(tu, profile, is_client) }
           messages = messages + [
             { role: 'assistant', content: response['content'] },
@@ -37,7 +39,7 @@ module Api
           ]
         else
           text = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '')
-          return render json: { message: text, conversation_id: @conversation_id }
+          return render json: { message: text, conversation_id: @conversation_id, tool_calls: all_tool_calls }
         end
       end
     end

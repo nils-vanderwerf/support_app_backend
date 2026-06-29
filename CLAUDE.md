@@ -48,6 +48,16 @@ New migrations run automatically on deploy via `db:migrate`. Data cleanup logic 
 - The AI can return JSON actions embedded in its response: `send_invitation`, `send_recurring_invitations`, `approve`, `decline`, `decline_all`.
 - Dates from the AI are ISO 8601 with timezone offset (e.g. `"2026-05-20T09:30:00+10:00"`). Always parse with `DateTime.parse` — not `Time.parse` or `ActiveSupport::TimeZone` — to preserve the local time offset.
 - System messages in conversations are prefixed `[SYS]` and rendered differently on the frontend.
+- `conversations#build_persona` silently injects visit report history into the system prompt for both worker and client personas (up to 6 most recent reports). Workers receive it as "VISIT HISTORY CONTEXT"; clients receive it as "YOUR EXPERIENCE". This gives AI-simulated conversations contextual richness even before a human worker has accessed the reports.
+- `ai_booking/chat` collects tool calls across all loop iterations in `all_tool_calls` and returns them in the JSON response as `tool_calls: [{ name, input }]` so the frontend can render them as visual steps.
+
+## Visit reports and progress reports
+
+- `GET /api/clients/:id/visit_reports` — member route. Clients see all their own reports (with support_worker included). Approved workers see only their own reports for that client, gated behind an approved appointment.
+- `GET /api/progress_reports` — returns all progress reports saved by the authenticated support worker (with client included).
+- `POST /api/progress_reports` — creates a saved progress report (`client_id`, `summary`, `report_count`). Requires approved support worker.
+- `DELETE /api/progress_reports/:id` — deletes a progress report; scoped to the authenticated worker's own records (returns 404 for another worker's report).
+- `POST /api/client_progress_reports` — generates an AI summary from visit reports. Gated behind an approved appointment between the worker and the client.
 
 ## Deployment
 

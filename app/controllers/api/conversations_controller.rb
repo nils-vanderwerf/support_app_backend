@@ -270,6 +270,25 @@ module Api
       'ENC:' + Base64.strict_encode64(iv + ciphertext + tag)
     end
 
+    def visit_report_context(client)
+      reports = VisitReport.where(client_id: client.id)
+                           .joins(:appointment)
+                           .order('appointments.date DESC')
+                           .limit(6)
+      return nil if reports.empty?
+
+      lines = reports.map do |r|
+        date = r.appointment.date.strftime('%-d %B %Y') rescue 'unknown date'
+        parts = []
+        parts << r.activities.strip    if r.activities.present?
+        parts << r.observations.strip  if r.observations.present?
+        parts << "Follow-up: #{r.follow_up_actions.strip}" if r.follow_up_actions.present?
+        "#{date}: #{parts.join(' · ')}"
+      end.join("\n")
+
+      { count: reports.size, text: lines }
+    end
+
     def build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts = [])
       name = "#{simulated_person.first_name} #{simulated_person.last_name}"
       other_name = current_person.first_name
@@ -308,13 +327,24 @@ module Api
       sw_specialisations = sw.respond_to?(:specialisations) ? sw.specialisations.map(&:name).join(', ').presence || 'not listed' : 'not listed'
       client_needs = client_record.respond_to?(:health_conditions) ? client_record.health_conditions.presence || 'not specified' : 'not specified'
 
+      report_ctx = visit_report_context(client_record)
+
       base = if simulated_role == 'support_worker'
+        worker_report_section = if report_ctx
+          <<~CTX
+
+            VISIT HISTORY CONTEXT (#{report_ctx[:count]} recent session#{'s' if report_ctx[:count] != 1} — for your awareness only, do not quote this directly or say you have access to a file):
+            #{report_ctx[:text]}
+            Use this naturally: follow up on anything flagged, reference what's worked, ask about progress on specific concerns. Speak as someone who has been briefed, not as someone reading a document.
+          CTX
+        end.to_s
+
         <<~P
           You are #{name} (the SUPPORT WORKER). You are chatting with #{other_name}, who is your CLIENT.
           #{identity_block}
           Your details — Location: #{simulated_person.location.presence || 'not specified'}, Specialisations: #{sw_specialisations}, Bio: #{simulated_person.bio.presence || 'experienced support worker'}.
           #{other_name}'s details — Location: #{current_person.location.presence || 'not specified'}, Health conditions / needs: #{client_needs}.
-
+          #{worker_report_section}
           IMPORTANT — assess these two things IN YOUR OPENING MESSAGE before anything else:
           1. Distance: Using your knowledge of Australian geography, determine whether your location (#{simulated_person.location.presence || 'unspecified'}) and #{other_name}'s location (#{current_person.location.presence || 'unspecified'}) are more than approximately 100 km apart. If they are, you MUST decline in your very first message — say you're too far away to provide reliable support and suggest they use the location filter on this app (Suppova) to find someone nearby. Do NOT mention external platforms. Do not proceed to discuss scheduling or needs.
           2. Specialisation fit: If #{other_name}'s needs (#{client_needs}) clearly fall outside your specialisations (#{sw_specialisations}), decline politely in your first message — explain this isn't your area and they'd be better served by someone with the right background.
@@ -328,12 +358,21 @@ module Api
           #{booking_section}
         P
       else
+        client_report_section = if report_ctx
+          <<~CTX
+
+            YOUR EXPERIENCE (#{report_ctx[:count]} recent session#{'s' if report_ctx[:count] != 1} with support workers — speak from this naturally as your own lived experience):
+            #{report_ctx[:text]}
+            Reference what's happened, how you've been feeling, what has or hasn't worked — as a real person would, not as someone reciting a record.
+          CTX
+        end.to_s
+
         <<~P
           You are #{name} (the CLIENT). You are chatting with #{other_name}, who is your SUPPORT WORKER.
           #{identity_block}
           Your details — Location: #{simulated_person.location.presence || 'not specified'}, Health conditions / needs: #{client_needs}.
           #{other_name}'s details — Location: #{current_person.location.presence || 'not specified'}, Specialisations: #{sw_specialisations}.
-
+          #{client_report_section}
           IMPORTANT — assess these two things IN YOUR OPENING MESSAGE before anything else:
           1. Distance: If #{other_name}'s location (#{current_person.location.presence || 'unspecified'}) is more than approximately 100 km from yours (#{simulated_person.location.presence || 'unspecified'}), tell them straight away that it's too far — you don't need to be polite about it. Something like "that's pretty far, I don't think that's going to work for me" is fine. You don't need to suggest alternatives.
           2. Specialisation fit: If their specialisations (#{sw_specialisations}) clearly don't match what you need (#{client_needs}), say so directly in your first message — something like "I need support with X and that doesn't seem to be your area."

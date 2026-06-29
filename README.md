@@ -56,10 +56,18 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - `POST /api/visit_reports` — creates a report linked to a specific appointment
 - `PUT /api/visit_reports/:id` — updates an existing report
 - `POST /api/visit_reports/generate_draft` — calls Claude with appointment and client context to generate structured Activities, Observations, and Follow-up Actions
+- `GET /api/clients/:id/visit_reports` — returns visit reports for a specific client; clients see all their own reports (with support worker name); approved workers see only their own reports for that client, gated behind an approved appointment
+
+### Progress reports
+- `POST /api/client_progress_reports` — generates an AI summary of a client's full visit history using Claude. Gated behind an approved appointment between the requesting worker and the client
+- `GET /api/progress_reports` — returns all progress reports saved by the authenticated support worker, with client name included
+- `POST /api/progress_reports` — saves a generated progress report for later reference
+- `DELETE /api/progress_reports/:id` — deletes a saved progress report; scoped to the owner (other workers' reports return 404)
 
 ### AI booking agent (`POST /api/ai_booking/chat`)
 - Runs a multi-step tool-use loop in a single HTTP request
 - Tools: `get_support_workers`, `get_clients`, `open_conversation`
+- Returns `tool_calls: [{ name, input }]` in the response so the frontend can render visual step indicators
 - Blocked for pending/rejected workers
 
 ### AI vetting agent (`POST /api/vetting/chat`)
