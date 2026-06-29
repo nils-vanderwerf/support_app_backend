@@ -1,18 +1,11 @@
 require 'rails_helper'
 
 RSpec.describe AppointmentReminderJob, type: :job do
-  let(:client_user) { User.create!(email: 'client@test.com', first_name: 'Jane', last_name: 'Doe', password: 'password123') }
-  let(:client) { Client.create!(user_id: client_user.id, first_name: 'Jane', last_name: 'Doe', email: 'client@test.com') }
-  let(:support_worker_user) { User.create!(email: 'worker@test.com', first_name: 'Bob', last_name: 'Brown', password: 'password123', role: 'support_worker') }
-  let(:support_worker) { SupportWorker.create!(user_id: support_worker_user.id, email: 'worker@test.com', first_name: 'Bob', last_name: 'Brown', phone: '0400000000', age: 30, location: 'Sydney') }
+  let(:client)         { create(:client) }
+  let(:support_worker) { create(:support_worker) }
   let(:appointment) do
-    Appointment.create!(
-      client: client,
-      support_worker: support_worker,
-      date: 2.days.from_now,
-      duration: 60,
-      location: 'Sydney CBD'
-    )
+    create(:appointment, client: client, support_worker: support_worker,
+           date: 2.days.from_now, duration: 60, location: 'Sydney CBD')
   end
 
   describe '#perform' do
@@ -25,13 +18,13 @@ RSpec.describe AppointmentReminderJob, type: :job do
       it 'sends an email to the client address' do
         described_class.perform_now(appointment.id)
         recipients = ActionMailer::Base.deliveries.map(&:to).flatten
-        expect(recipients).to include(client_user.email)
+        expect(recipients).to include(client.email)
       end
 
       it 'sends an email to the support worker address' do
         described_class.perform_now(appointment.id)
         recipients = ActionMailer::Base.deliveries.map(&:to).flatten
-        expect(recipients).to include('worker@test.com')
+        expect(recipients).to include(support_worker.email)
       end
     end
 
