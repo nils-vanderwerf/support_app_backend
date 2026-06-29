@@ -164,6 +164,7 @@ module Api
     end
 
     def execute_tool(tool_use, profile, is_client)
+      Rails.logger.debug "AI tool call: #{tool_use['name']} input=#{tool_use['input'].inspect}"
       result = case tool_use['name']
                when 'get_support_workers' then run_get_support_workers(tool_use['input']['keyword'])
                when 'get_clients'         then run_get_clients(tool_use['input']['keyword'])

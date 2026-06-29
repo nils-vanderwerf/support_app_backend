@@ -570,3 +570,129 @@ seed_messages(conv4, [
 
 puts "Conversations seeded: #{Conversation.count}"
 puts "Messages seeded: #{Message.count}"
+
+# ---------------------------------------------------------------------------
+# Visit Reports
+# ---------------------------------------------------------------------------
+
+# Elena Martinez — 5 past appointments with Olivia
+elena_past_appts = Appointment.where(client: elena, support_worker: olivia)
+                              .where('date < ?', Time.now).order(:date)
+elena_visit_data = [
+  { activities: 'Initial assessment session. Reviewed client goals, health history, and daily living needs.',
+    observations: 'Elena was welcoming and communicative. Hypertension well-managed, no concerns noted. Highly motivated to maintain independence.',
+    follow_up_actions: 'Confirm medication schedule and next GP check-up date.' },
+  { activities: 'Daily living skills practice — meal planning, grocery list preparation, light housekeeping.',
+    observations: 'Client engaged well. Mentioned occasional morning dizziness, possibly related to Lisinopril timing.',
+    follow_up_actions: 'Discuss medication timing with GP. Monitor morning dizziness at next visit.' },
+  { activities: 'Medication management review. Walked through Lisinopril schedule and discussed storage and reminders.',
+    observations: 'Elena confirmed morning dizziness has reduced after adjusting medication timing. Positive mood throughout.',
+    follow_up_actions: 'Continue monitoring. Confirm GP follow-up outcome at next appointment.' },
+  { activities: 'Community access outing to Surry Hills Farmers Market. Assisted with transport and social navigation.',
+    observations: 'Client appeared confident and enjoyed the outing. Connected with a neighbour she hadn\'t seen in months.',
+    follow_up_actions: 'Explore regular weekly community outings as part of ongoing support plan.' },
+  { activities: 'Weekly support session — cooking, household organisation, social goals check-in.',
+    observations: 'Elena reported feeling more confident managing daily tasks independently. Strong overall progress noted.',
+    follow_up_actions: 'Review support plan at next session. Consider reducing session frequency if progress continues.' },
+]
+elena_past_appts.each_with_index do |appt, i|
+  VisitReport.create!(
+    appointment: appt, user_id: olivia.user_id, client_id: elena.id,
+    date: appt.date, **elena_visit_data[i]
+  )
+end
+
+# Raj Patel — 2 past appointments with James Smith
+raj_past_appts = Appointment.where(client: raj, support_worker: james)
+                            .where('date < ?', Time.now).order(:date)
+raj_visit_data = [
+  { activities: 'Informal coffee catch-up at Swan Street Cafe. Open conversation about daily life and social connection.',
+    observations: 'Raj opened up about feeling isolated working from home. Good rapport established quickly. No clinical concerns.',
+    follow_up_actions: 'Plan a structured goal-setting session for next visit. Explore community activities Raj might enjoy.' },
+  { activities: 'Goal-setting session at Fitzroy Community Hub. Identified three social and wellbeing goals for the next month.',
+    observations: 'Raj was engaged and practical about his goals. Mood noticeably improved compared to first visit. Isolation less prominent.',
+    follow_up_actions: 'Check in on progress against goals at next session. Raj expressed interest in a local book group.' },
+]
+raj_past_appts.each_with_index do |appt, i|
+  VisitReport.create!(
+    appointment: appt, user_id: james.user_id, client_id: raj.id,
+    date: appt.date, **raj_visit_data[i]
+  )
+end
+
+# Amina Ali — 2 past appointments with Priya
+amina_past_appts = Appointment.where(client: amina, support_worker: priya)
+                              .where('date < ?', Time.now).order(:date)
+amina_visit_data = [
+  { activities: 'Physical therapy assistance at New Farm Physio Centre. Supported client through prescribed knee rehabilitation exercises.',
+    observations: 'Amina found exercises challenging but persisted well. Blood sugar stable throughout session. Knee remains swollen post-exercise.',
+    follow_up_actions: 'Confirm icing and elevation routine at home. Follow up with physiotherapist on swelling before next session.' },
+  { activities: 'Post-session review and home exercise program. Reviewed physio notes and practised modified exercises at lower intensity.',
+    observations: 'Swelling has reduced. Amina completing home exercises consistently. Blood sugar monitoring routine now well-established.',
+    follow_up_actions: 'Confirm next physio appointment. Encourage Amina to log blood sugar readings for GP review.' },
+]
+amina_past_appts.each_with_index do |appt, i|
+  VisitReport.create!(
+    appointment: appt, user_id: priya.user_id, client_id: amina.id,
+    date: appt.date, **amina_visit_data[i]
+  )
+end
+
+# Sophie Chen — 3 past appointments with Mei
+sophie_past_appts = Appointment.where(client: sophie, support_worker: mei_sw)
+                               .where('date < ?', Time.now).order(:date)
+sophie_visit_data = [
+  { activities: 'Sensory integration activities at Parramatta Support Hub. Structured tasks chosen in advance and shared with Sophie beforehand.',
+    observations: 'Sophie engaged confidently with all planned activities. No sensory overload incidents. Responded positively to clear advance communication.',
+    follow_up_actions: 'Continue sharing session plans 24 hours in advance. Introduce one new activity next session with prior notice.' },
+  { activities: 'Communication skills session focusing on workplace scenarios and assertive communication strategies.',
+    observations: 'Sophie demonstrated strong understanding and practical skill. Articulated personal communication preferences clearly to support worker.',
+    follow_up_actions: 'Source workplace communication resources Sophie requested. Plan next session around a community access scenario.' },
+  { activities: 'Weekly skills session — community access practice at Parramatta library and independent task completion.',
+    observations: 'Sophie navigated the library independently with minimal prompting. Completed all tasks on the agreed checklist. High level of satisfaction reported.',
+    follow_up_actions: 'Discuss expanding community access to one additional venue next month. Review support plan goals.' },
+]
+sophie_past_appts.each_with_index do |appt, i|
+  VisitReport.create!(
+    appointment: appt, user_id: mei_sw.user_id, client_id: sophie.id,
+    date: appt.date, **sophie_visit_data[i]
+  )
+end
+
+# Mai Nguyen — 2 past appointments with Nathan
+mai_past_appts = Appointment.where(client: mai, support_worker: nathan)
+                            .where('date < ?', Time.now).order(:date)
+mai_visit_data = [
+  { activities: 'Epilepsy management discussion and social goal planning at South Yarra Day Centre.',
+    observations: 'Mai was calm and engaged. No seizure activity observed. Managing study schedule well but expressed concern about social isolation.',
+    follow_up_actions: 'Identify one regular social activity that fits around study timetable. Check in on medication adherence next visit.' },
+  { activities: 'Social inclusion outing to South Yarra Community Park. Assisted with transport and social navigation.',
+    observations: 'Mai connected positively with other park visitors. Reported feeling less isolated. Medication adherence confirmed, no seizures since last visit.',
+    follow_up_actions: 'Explore joining a local study group or hobby class. Continue weekly social outings.' },
+]
+mai_past_appts.each_with_index do |appt, i|
+  VisitReport.create!(
+    appointment: appt, user_id: nathan.user_id, client_id: mai.id,
+    date: appt.date, **mai_visit_data[i]
+  )
+end
+
+# Thomas Rivera — 2 past appointments with Olivia
+thomas_past_appts = Appointment.where(client: thomas, support_worker: olivia)
+                               .where('date < ?', Time.now).order(:date)
+thomas_visit_data = [
+  { activities: 'Community access visit to Newtown Library. Assisted with transport and social navigation in a busy public space.',
+    observations: 'Thomas initially anxious on arrival but settled well once inside. Browsed independently for 30 minutes — a positive step. No asthma episodes.',
+    follow_up_actions: 'Continue gradual community exposure. Suggest returning to the library monthly to build familiarity.' },
+  { activities: 'Community outing to Newtown Farmers Market. Supported client in browsing stalls and managing crowded environment.',
+    observations: 'Thomas was more relaxed than previous outing. Initiated conversation with a market vendor unprompted — notable progress for social anxiety.',
+    follow_up_actions: 'Build on unprompted social interactions. Explore other regular local events as future outings.' },
+]
+thomas_past_appts.each_with_index do |appt, i|
+  VisitReport.create!(
+    appointment: appt, user_id: olivia.user_id, client_id: thomas.id,
+    date: appt.date, **thomas_visit_data[i]
+  )
+end
+
+puts "Visit reports seeded: #{VisitReport.count}"

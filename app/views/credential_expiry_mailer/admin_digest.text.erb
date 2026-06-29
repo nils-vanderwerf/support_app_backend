@@ -1,0 +1,11 @@
+Hi,
+
+The following support worker credentials are expiring soon:
+
+<% @expiring.each do |e| %>
+- <%= e[:worker].first_name %> <%= e[:worker].last_name %> (<%= e[:worker].email %>): <%= e[:credential_name] %> expires in <%= e[:days_remaining] %> days (<%= e[:expiry_date].strftime('%d %B %Y') %>)
+<% end %>
+
+Please follow up with these workers to ensure they renew their credentials before the expiry date.
+
+The Suppova Platform

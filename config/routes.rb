@@ -14,7 +14,9 @@ Rails.application.routes.draw do
     # Defines the root path route ("/")
     # root "posts#index"
     resources :users, only: [:create]
-    resources :clients
+    resources :clients do
+      get :visit_reports, on: :member
+    end
     resources :appointments do
       collection do
         get :pending
@@ -37,6 +39,9 @@ Rails.application.routes.draw do
     post 'visit_reports/draft', to: 'visit_reports#draft'
     resources :visit_reports, only: [:index, :show, :create, :update]
     post 'ai_booking/chat', to: 'ai_booking#chat'
+    post 'client_progress_reports', to: 'client_progress_reports#create'
+    resources :progress_reports, only: [:index, :create, :destroy]
+    post 'cron/credential_expiry', to: 'cron#credential_expiry'
     post 'chat_simulation', to: 'chat_simulation#simulate'
     get 'dashboard', to: 'dashboard#show'
     resources :support_workers

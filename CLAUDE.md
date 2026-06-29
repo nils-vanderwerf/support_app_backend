@@ -52,7 +52,8 @@ New migrations run automatically on deploy via `db:migrate`. Data cleanup logic 
 ## Deployment
 
 - Backend is deployed on Render. New deploys run `db:migrate` automatically.
-- Required env vars: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `FRONTEND_URL=https://kindredsupport.vercel.app`, `MAILER_FROM=onboarding@resend.dev`
+- Required env vars: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `FRONTEND_URL=https://kindredsupport.vercel.app`, `MAILER_FROM=onboarding@resend.dev`, `ADMIN_EMAIL=<admin address>`, `CRON_SECRET=<random secret>`
+- Credential expiry cron: `POST /api/cron/credential_expiry` with `Authorization: Bearer <CRON_SECRET>`. Configure a Render Cron Job to hit this endpoint daily. Notifies workers at 30/14/7 days before expiry; sends admin a digest on the same schedule.
 - Frontend is deployed on Vercel (separate repo at `support_app_frontend`).
 
 ## Working style

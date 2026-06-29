@@ -12,11 +12,38 @@ module Api
       approved_worker = worker&.status == 'approved'
       has_confirmed_appointment = Appointment.where(support_worker_id: worker&.id, client_id: client.id).approved.present?
       if current_user&.client&.id == client.id || (approved_worker && has_confirmed_appointment)
-        render json: client.as_json(methods: [:age])
+        render json: client.as_json(methods: [:age]).merge(has_approved_appointment: has_confirmed_appointment)
       elsif approved_worker && !has_confirmed_appointment
-        render json: client.as_json(only: [:id, :first_name, :last_name, :location, :bio, :health_conditions])
+        render json: client.as_json(only: [:id, :first_name, :last_name, :location, :bio, :health_conditions]).merge(has_approved_appointment: false)
       else
         return render json: { error: 'Forbidden' }, status: :forbidden
+      end
+    end
+
+    def visit_reports
+      client = Client.find(params[:id])
+
+      if current_user&.client&.id == client.id
+        reports = VisitReport.where(client_id: client.id)
+                             .includes(:appointment, :support_worker)
+                             .order(date: :desc)
+        render json: reports.as_json(
+          include: {
+            appointment: { only: %i[id date location] },
+            support_worker: { only: %i[id first_name last_name] }
+          }
+        )
+      elsif current_user&.support_worker&.status == 'approved'
+        worker = current_user.support_worker
+        unless Appointment.where(support_worker_id: worker.id, client_id: client.id).approved.exists?
+          return render json: { error: 'Forbidden' }, status: :forbidden
+        end
+        reports = VisitReport.where(client_id: client.id, user_id: current_user.id)
+                             .includes(:appointment)
+                             .order(date: :desc)
+        render json: reports.as_json(include: { appointment: { only: %i[id date location] } })
+      else
+        render json: { error: 'Forbidden' }, status: :forbidden
       end
     end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_27_011349) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_29_000001) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -72,6 +72,17 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_27_011349) do
     t.text "content"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "progress_reports", force: :cascade do |t|
+    t.integer "client_id", null: false
+    t.integer "user_id", null: false
+    t.text "summary", null: false
+    t.integer "report_count", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["client_id"], name: "index_progress_reports_on_client_id"
+    t.index ["user_id"], name: "index_progress_reports_on_user_id"
   end
 
   create_table "specialisations", force: :cascade do |t|
