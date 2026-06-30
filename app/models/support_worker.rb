@@ -1,6 +1,7 @@
 class SupportWorker < ApplicationRecord
   belongs_to :user
   has_many :appointments
+  has_many :reviews, dependent: :destroy
   has_many :admin_messages, dependent: :destroy
   has_and_belongs_to_many :specialisations
   validates :first_name, :last_name, :phone, :email, :location, presence: true
@@ -12,6 +13,15 @@ class SupportWorker < ApplicationRecord
 
   scope :approved, -> { where(status: 'approved') }
   scope :pending_approval, -> { where(status: 'pending') }
+
+  def average_rating
+    return nil if reviews.empty?
+    (reviews.average(:rating) || 0).round(1)
+  end
+
+  def review_count
+    reviews.count
+  end
 
   def age
     return nil unless date_of_birth

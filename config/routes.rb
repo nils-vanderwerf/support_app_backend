@@ -44,7 +44,10 @@ Rails.application.routes.draw do
     post 'cron/credential_expiry', to: 'cron#credential_expiry'
     post 'chat_simulation', to: 'chat_simulation#simulate'
     get 'dashboard', to: 'dashboard#show'
-    resources :support_workers
+    resources :support_workers do
+      resources :reviews, only: [:index]
+    end
+    resources :reviews, only: [:create, :update, :destroy]
     post 'vetting/submit', to: 'vetting#submit'
     post 'vetting/chat', to: 'vetting#chat'
     get  'vetting/status', to: 'vetting#status'
