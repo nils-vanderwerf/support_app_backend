@@ -6,6 +6,7 @@ require 'securerandom'
 
 # Clear existing data to prevent duplication if re-seeding
 if Rails.env.development? || Rails.env.production?
+  Review.delete_all
   Message.delete_all
   Conversation.delete_all
   Appointment.delete_all
@@ -696,3 +697,54 @@ thomas_past_appts.each_with_index do |appt, i|
 end
 
 puts "Visit reports seeded: #{VisitReport.count}"
+
+# ---------------------------------------------------------------------------
+# Reviews
+# ---------------------------------------------------------------------------
+
+# Elena reviews Olivia — 3 of her 5 past appointments reviewed
+elena_olivia_appts = Appointment.where(client: elena, support_worker: olivia)
+                                .where('date < ?', Time.now).order(:date)
+
+[
+  { appt: elena_olivia_appts[0], rating: 5, comment: "Olivia made me feel completely at ease from the very first session. She was warm, professional, and clearly knew what she was doing. I felt heard and respected throughout." },
+  { appt: elena_olivia_appts[1], rating: 5, comment: "Incredible session — Olivia helped me work through tasks I've been putting off for months. She has a calm, encouraging energy that makes everything feel manageable." },
+  { appt: elena_olivia_appts[2], rating: 4, comment: "Really positive visit. Olivia was thorough with the medication review and made sure I understood everything. Only minor thing is we ran slightly over time, but not a big deal at all." },
+].each do |r|
+  Review.create!(client: elena, support_worker: olivia, appointment: r[:appt], rating: r[:rating], comment: r[:comment])
+end
+
+# Thomas reviews Olivia — 1 of 2 past appointments reviewed
+thomas_olivia_appts = Appointment.where(client: thomas, support_worker: olivia)
+                                 .where('date < ?', Time.now).order(:date)
+
+Review.create!(
+  client: thomas, support_worker: olivia,
+  appointment: thomas_olivia_appts.first,
+  rating: 5,
+  comment: "Going out in public is really hard for me, but Olivia made the library visit feel safe. She didn't rush me or draw attention to my anxiety — she just stayed close and let me go at my own pace. Really grateful."
+)
+
+# Raj reviews James — both past appointments reviewed
+raj_james_appts = Appointment.where(client: raj, support_worker: james)
+                             .where('date < ?', Time.now).order(:date)
+
+[
+  { appt: raj_james_appts[0], rating: 4, comment: "James is easy to talk to and very reliable. The coffee catch-up was relaxed and he asked good questions about how things are going. Felt more like a conversation than a 'session'." },
+  { appt: raj_james_appts[1], rating: 5, comment: "The goal-setting session was genuinely useful — James helped me break things down into steps I can actually follow. He listens well and doesn't make you feel judged for where you're at." },
+].each do |r|
+  Review.create!(client: raj, support_worker: james, appointment: r[:appt], rating: r[:rating], comment: r[:comment])
+end
+
+# Amina reviews Priya — 1 of 2 past appointments reviewed
+amina_priya_appts = Appointment.where(client: amina, support_worker: priya)
+                               .where('date < ?', Time.now).order(:date)
+
+Review.create!(
+  client: amina, support_worker: priya,
+  appointment: amina_priya_appts.first,
+  rating: 5,
+  comment: "Priya clearly knows her stuff. She coordinated seamlessly with my physio and kept me motivated during a really difficult session. Having her there made a huge difference — I wouldn't have pushed through without the support."
+)
+
+puts "Reviews seeded: #{Review.count}"
