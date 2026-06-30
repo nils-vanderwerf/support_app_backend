@@ -19,8 +19,9 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - **AI booking agent** — multi-step Claude tool-use loop that matches clients with support workers
 - **AI vetting agent** — conversational interview that collects and validates support worker credentials before flagging for admin review
 - **AI visit report drafts** — generates structured Activities, Observations, and Follow-up Actions from appointment context
+- **Star ratings & reviews** — clients rate and review support workers after appointments; workers notified by email and in-thread system message
 - **Admin dashboard API** — scoped stats, worker lists, and appointment management
-- **Transactional email** via Resend — password reset and vetting application notifications
+- **Transactional email** via Resend — password reset, vetting notifications, and review alerts
 
 ## Tech stack
 
@@ -64,6 +65,12 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - `POST /api/progress_reports` — saves a generated progress report for later reference
 - `DELETE /api/progress_reports/:id` — deletes a saved progress report; scoped to the owner (other workers' reports return 404)
 
+### Reviews
+- `GET /api/support_workers/:id/reviews` — returns all reviews for a worker, ordered newest first, with client name included
+- `POST /api/reviews` — creates a review; client-only, validated against appointment ownership; triggers a `ReviewMailer` email and posts a star-rating system message to the worker's conversation thread
+- `PATCH /api/reviews/:id` — updates rating and comment; scoped to the reviewing client (other clients get 403)
+- `DELETE /api/reviews/:id` — deletes the review; scoped to the reviewing client
+
 ### AI booking agent (`POST /api/ai_booking/chat`)
 - Runs a multi-step tool-use loop in a single HTTP request
 - Tools: `get_support_workers`, `get_clients`, `open_conversation`
@@ -95,7 +102,7 @@ The frontend React app lives in a separate repository: [support_app_frontend](ht
 - ActiveRecord associations and database design
 - ActiveRecord transactions for data integrity
 - Role-based access control with a shared `RoleRegistry` concern
-- Session-based authentication (cookies, CSRF)
+- Token-based authentication (signed tokens, no session cookies)
 - Encapsulation and modular design
 - RSpec request specs with context blocks
 - Agentic AI patterns — tool use, multi-step loops, and prompt engineering with the Claude API
@@ -109,14 +116,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 RESEND_API_KEY=re_...
 FRONTEND_URL=http://localhost:3000
 SECRET_KEY_BASE=<any long random string for local dev>
-```
-
-Then:
-
-Add your Anthropic API key to a `.env` file in the project root (already gitignored):
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Then:
