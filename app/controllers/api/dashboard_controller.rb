@@ -33,6 +33,11 @@ module Api
 
       days_since = last_appt ? ((now - last_appt.date) / 1.day).floor : nil
 
+      given_reviews = client.reviews
+        .includes(support_worker: :user)
+        .order(created_at: :desc)
+        .limit(5)
+
       {
         role: 'client',
         upcoming_appointments: upcoming.as_json(include: :support_worker),
@@ -44,6 +49,10 @@ module Api
           medication: client.medication,
           allergies: client.allergies,
         },
+        given_reviews: given_reviews.as_json(
+          only: %i[id rating comment created_at],
+          include: { support_worker: { only: %i[id first_name last_name] } }
+        ),
       }
     end
 
@@ -83,6 +92,11 @@ module Api
         .distinct
         .count(:client_id)
 
+      recent_reviews = worker.reviews
+        .includes(:client)
+        .order(created_at: :desc)
+        .limit(3)
+
       {
         role: 'support_worker',
         upcoming_appointments: upcoming.as_json(include: :client),
@@ -90,6 +104,12 @@ module Api
         today_appointments: today.as_json(include: :client),
         hours_this_week: hours_this_week.round(1),
         total_clients: total_clients,
+        average_rating: worker.average_rating,
+        review_count: worker.review_count,
+        recent_reviews: recent_reviews.as_json(
+          only: %i[id rating comment created_at],
+          include: { client: { only: %i[first_name last_name] } }
+        ),
       }
     end
   end

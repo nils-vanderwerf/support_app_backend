@@ -17,7 +17,7 @@ module Api
       unless current_user&.admin? || worker.status == 'approved' || is_own_profile
         return render json: { error: 'Not found' }, status: :not_found
       end
-      render json: worker.as_json(include: :specialisations, methods: [:age])
+      render json: worker.as_json(include: :specialisations, methods: %i[age average_rating review_count])
     end
 
     def update
