@@ -1,0 +1,11 @@
+Hi <%= @support_worker.first_name %>,
+
+Great news — <%= @client.first_name %> <%= @client.last_name %> has left you a review on Suppova.
+
+Rating: <%= '★' * @review.rating %><%= '☆' * (5 - @review.rating) %> (<%= @review.rating %>/5)
+Appointment: <%= @appointment.date.strftime('%A, %d %B %Y') %>
+<% if @review.comment.present? %>
+"<%= @review.comment %>"
+<% end %>
+
+Log in to Suppova to see all your reviews.
