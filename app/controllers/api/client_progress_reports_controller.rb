@@ -17,10 +17,7 @@ module Api
                            .order('appointments.date ASC')
 
       if reports.empty?
-        return render json: {
-          summary: "No visit reports have been recorded for #{client.first_name} #{client.last_name} yet.",
-          report_count: 0
-        }
+        return render json: { report_count: 0 }
       end
 
       reports_text = reports.map.with_index(1) do |r, i|
@@ -37,7 +34,17 @@ module Api
       response = anthropic.messages(parameters: {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
-        system: 'You are a disability support coordinator writing a concise progress summary for a client. Be professional and compassionate. Use markdown formatting with ## headers.',
+        system: <<~SYSTEM,
+          You are a disability support coordinator writing a concise progress summary for a client.
+          Be professional and compassionate. Use markdown formatting with ## headers.
+
+          IMPORTANT CONSTRAINTS — you must follow these without exception:
+          - You are a documentation tool, not a clinical or medical advisor.
+          - Do not give, recommend, adjust, or comment on any medication, dosage, or treatment.
+          - Do not suggest anything that could interact with or brush against a client's flagged allergies.
+          - If a health concern arises that warrants clinical input, state only: "This observation should be raised with the client's GP or treating clinician." Do not elaborate beyond that.
+          - Surface flagged allergies and medications as factual context only — never reason about them clinically.
+        SYSTEM
         messages: [{
           role: 'user',
           content: <<~PROMPT
@@ -45,6 +52,8 @@ module Api
 
             Client: #{client.first_name} #{client.last_name}
             Health conditions: #{client.health_conditions.presence || 'none recorded'}
+            Current medications: #{client.medication.presence || 'none recorded'}
+            Flagged allergies: #{client.allergies.presence || 'none recorded'}
 
             Visit reports (chronological):
             #{reports_text}

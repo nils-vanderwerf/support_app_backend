@@ -68,7 +68,7 @@ RSpec.describe 'ClientProgressReportsController', type: :request do
           expect(response).to have_http_status(:ok)
           body = JSON.parse(response.body)
           expect(body['report_count']).to eq(0)
-          expect(body['summary']).to include('No visit reports')
+          expect(body['summary']).to be_nil
         end
 
         it 'returns an AI-generated summary when visit reports exist' do
