@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_30_230900) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_04_003108) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -61,6 +61,16 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_230900) do
   create_table "conversations", force: :cascade do |t|
     t.integer "client_id"
     t.integer "support_worker_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "failed_email_logs", force: :cascade do |t|
+    t.string "job_class"
+    t.text "arguments"
+    t.text "error_message"
+    t.datetime "failed_at"
+    t.datetime "resolved_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
