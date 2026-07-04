@@ -6,10 +6,9 @@ FactoryBot.define do
     observations { 'Client was engaged and in good spirits throughout the session.' }
     follow_up_actions { 'Schedule follow-up appointment in two weeks.' }
 
-    # user_id and client_id are derived from the appointment automatically
     after(:build) do |report|
-      report.user_id   ||= report.appointment.support_worker.user_id
-      report.client_id ||= report.appointment.client_id
+      report.support_worker_id ||= report.appointment.support_worker.id
+      report.client_id         ||= report.appointment.client_id
     end
   end
 end

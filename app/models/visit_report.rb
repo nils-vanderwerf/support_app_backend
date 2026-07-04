@@ -1,6 +1,6 @@
 class VisitReport < ApplicationRecord
   belongs_to :appointment
-  belongs_to :support_worker, foreign_key: :user_id, primary_key: :user_id, optional: true
+  belongs_to :support_worker
 
   validates :appointment_id, uniqueness: true
 end

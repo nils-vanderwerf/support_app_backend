@@ -53,12 +53,12 @@ RSpec.describe 'Factories' do
     expect(build(:message, :from_support_worker)).to be_valid
   end
 
-  it 'builds a valid visit_report' do
-    expect(build(:visit_report)).to be_valid
+  it 'creates a valid visit_report' do
+    expect(create(:visit_report)).to be_valid
   end
 
-  it 'builds a valid progress_report' do
-    expect(build(:progress_report)).to be_valid
+  it 'creates a valid progress_report' do
+    expect(create(:progress_report)).to be_valid
   end
 
   it 'creates a user with a unique email each time' do
@@ -72,14 +72,14 @@ RSpec.describe 'Factories' do
     expect(worker.specialisations.count).to eq(2)
   end
 
-  it 'derives visit_report user_id and client_id from appointment' do
+  it 'derives visit_report support_worker_id and client_id from appointment' do
     vr = create(:visit_report)
-    expect(vr.user_id).to eq(vr.appointment.support_worker.user_id)
+    expect(vr.support_worker_id).to eq(vr.appointment.support_worker.id)
     expect(vr.client_id).to eq(vr.appointment.client_id)
   end
 
-  it 'derives progress_report user_id from worker transient' do
+  it 'derives progress_report support_worker_id from worker transient' do
     pr = create(:progress_report)
-    expect(pr.user_id).to be_present
+    expect(pr.support_worker_id).to be_present
   end
 end

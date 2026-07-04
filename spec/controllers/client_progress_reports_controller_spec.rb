@@ -74,7 +74,7 @@ RSpec.describe 'ClientProgressReportsController', type: :request do
         it 'returns an AI-generated summary when visit reports exist' do
           VisitReport.create!(
             appointment: appointment,
-            user_id: sw_user.id,
+            support_worker_id: support_worker.id,
             client_id: client.id,
             date: 1.week.ago,
             activities: 'Helped with meals',

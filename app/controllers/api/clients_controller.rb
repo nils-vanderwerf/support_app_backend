@@ -38,7 +38,7 @@ module Api
         unless Appointment.where(support_worker_id: worker.id, client_id: client.id).approved.exists?
           return render json: { error: 'Forbidden' }, status: :forbidden
         end
-        reports = VisitReport.where(client_id: client.id, user_id: current_user.id)
+        reports = VisitReport.where(client_id: client.id, support_worker_id: current_user.support_worker.id)
                              .includes(:appointment)
                              .order(date: :desc)
         render json: reports.as_json(include: { appointment: { only: %i[id date location] } })

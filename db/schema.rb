@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_04_003108) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_04_043944) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -86,13 +86,13 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_04_003108) do
 
   create_table "progress_reports", force: :cascade do |t|
     t.integer "client_id", null: false
-    t.integer "user_id", null: false
     t.text "summary", null: false
     t.integer "report_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "support_worker_id"
     t.index ["client_id"], name: "index_progress_reports_on_client_id"
-    t.index ["user_id"], name: "index_progress_reports_on_user_id"
+    t.index ["support_worker_id"], name: "index_progress_reports_on_support_worker_id"
   end
 
   create_table "reviews", force: :cascade do |t|
@@ -173,7 +173,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_04_003108) do
   end
 
   create_table "visit_reports", force: :cascade do |t|
-    t.integer "user_id"
     t.integer "client_id"
     t.integer "appointment_id"
     t.datetime "date"
@@ -182,6 +181,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_04_003108) do
     t.text "follow_up_actions"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "support_worker_id"
+    t.index ["support_worker_id"], name: "index_visit_reports_on_support_worker_id"
   end
 
   add_foreign_key "clients", "users"

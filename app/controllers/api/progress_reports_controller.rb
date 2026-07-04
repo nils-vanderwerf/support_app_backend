@@ -3,7 +3,7 @@ module Api
     before_action :require_support_worker
 
     def index
-      reports = ProgressReport.where(user_id: current_user.id)
+      reports = ProgressReport.where(support_worker_id: current_user.support_worker.id)
                               .includes(:client)
                               .order(created_at: :desc)
       render json: reports.as_json(
@@ -14,7 +14,7 @@ module Api
     def create
       report = ProgressReport.create!(
         client_id: params[:client_id],
-        user_id: current_user.id,
+        support_worker_id: current_user.support_worker.id,
         summary: params[:summary],
         report_count: params[:report_count].to_i
       )
@@ -24,7 +24,7 @@ module Api
     end
 
     def destroy
-      report = ProgressReport.find_by(id: params[:id], user_id: current_user.id)
+      report = ProgressReport.find_by(id: params[:id], support_worker_id: current_user.support_worker.id)
       return render json: { error: 'Not found' }, status: :not_found unless report
       report.destroy
       head :no_content

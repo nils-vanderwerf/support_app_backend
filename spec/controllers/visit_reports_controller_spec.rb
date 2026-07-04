@@ -37,7 +37,7 @@ RSpec.describe 'VisitReportsController', type: :request do
       end
 
       it 'upserts: updating an existing report for the same appointment' do
-        VisitReport.create!(user_id: sw_user.id, client_id: client.id, appointment_id: appointment.id,
+        VisitReport.create!(support_worker_id: support_worker.id, client_id: client.id, appointment_id: appointment.id,
                             date: appointment.date, activities: 'Old activity')
         post api_visit_reports_path, params: {
           appointment_id: appointment.id,
@@ -74,7 +74,7 @@ RSpec.describe 'VisitReportsController', type: :request do
   describe 'GET /api/visit_reports' do
     before do
       support_worker
-      VisitReport.create!(user_id: sw_user.id, client_id: client.id, appointment_id: appointment.id,
+      VisitReport.create!(support_worker_id: support_worker.id, client_id: client.id, appointment_id: appointment.id,
                           date: appointment.date, activities: 'Cooking assistance')
       login_as(sw_user)
     end
@@ -89,7 +89,7 @@ RSpec.describe 'VisitReportsController', type: :request do
 
   describe 'PUT /api/visit_reports/:id' do
     let!(:report) do
-      VisitReport.create!(user_id: sw_user.id, client_id: client.id, appointment_id: appointment.id,
+      VisitReport.create!(support_worker_id: support_worker.id, client_id: client.id, appointment_id: appointment.id,
                           date: appointment.date, activities: 'Old activity', observations: 'Old obs', follow_up_actions: 'Old fup')
     end
 

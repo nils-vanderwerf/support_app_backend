@@ -131,7 +131,7 @@ RSpec.describe "ClientsController", type: :request do
     let!(:visit_report) do
       VisitReport.create!(
         appointment: appointment,
-        user_id: sw_user.id,
+        support_worker_id: support_worker.id,
         client_id: client.id,
         date: '2026-05-01',
         activities: 'Assisted with meal prep',

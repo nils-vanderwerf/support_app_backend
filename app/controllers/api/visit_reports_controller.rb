@@ -4,7 +4,7 @@ module Api
 
     def index
       worker = current_user.support_worker
-      reports = VisitReport.where(user_id: current_user.id)
+      reports = VisitReport.where(support_worker_id: current_user.support_worker.id)
                            .includes(appointment: :client)
                            .order(created_at: :desc)
       render json: reports.as_json(
@@ -26,7 +26,7 @@ module Api
     def create
       report = VisitReport.find_or_initialize_by(appointment_id: params[:appointment_id])
       report.assign_attributes(
-        user_id: current_user.id,
+        support_worker_id: current_user.support_worker.id,
         client_id: params[:client_id],
         date: params[:date] || Date.today,
         activities: params[:activities],
@@ -41,7 +41,7 @@ module Api
     end
 
     def update
-      report = VisitReport.find_by(id: params[:id], user_id: current_user.id)
+      report = VisitReport.find_by(id: params[:id], support_worker_id: current_user.support_worker.id)
       return render json: { error: 'Not found' }, status: :not_found unless report
 
       report.assign_attributes(

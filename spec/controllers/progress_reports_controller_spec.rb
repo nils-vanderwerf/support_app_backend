@@ -17,8 +17,9 @@ RSpec.describe 'ProgressReportsController', type: :request do
     post api_login_path, params: { email: user.email, password: 'password123' }
   end
 
-  def create_report(user_id: sw_user.id, client:, summary: 'Good progress.', report_count: 2)
-    ProgressReport.create!(user_id: user_id, client: client, summary: summary, report_count: report_count)
+  def create_report(worker: nil, client:, summary: 'Good progress.', report_count: 2)
+    worker ||= support_worker
+    ProgressReport.create!(support_worker_id: worker.id, client: client, summary: summary, report_count: report_count)
   end
 
   describe 'GET /api/progress_reports' do
@@ -70,7 +71,7 @@ RSpec.describe 'ProgressReportsController', type: :request do
 
       it 'does not return reports saved by another worker' do
         other_worker
-        create_report(user_id: other_sw_user.id, client: client)
+        create_report(worker: other_worker, client: client)
         get '/api/progress_reports'
         expect(response).to have_http_status(:ok)
         expect(JSON.parse(response.body)).to eq([])
@@ -141,7 +142,7 @@ RSpec.describe 'ProgressReportsController', type: :request do
 
       it 'returns not_found when the report belongs to another worker' do
         other_worker
-        other_report = create_report(user_id: other_sw_user.id, client: client)
+        other_report = create_report(worker: other_worker, client: client)
         delete "/api/progress_reports/#{other_report.id}"
         expect(response).to have_http_status(:not_found)
       end
