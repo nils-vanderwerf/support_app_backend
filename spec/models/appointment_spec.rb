@@ -48,6 +48,30 @@ RSpec.describe Appointment, type: :model do
     end
   end
 
+  describe '#save when the DB exclusion constraint fires' do
+    it 'returns false and surfaces a date conflict error rather than raising' do
+      appointment = build(:appointment)
+      allow(appointment).to receive(:valid?).and_return(true)
+      allow(appointment).to receive(:create_or_update).and_raise(
+        ActiveRecord::StatementInvalid.new('PG::ExclusionViolation: no_overlapping_appointments')
+      )
+
+      result = appointment.save
+      expect(result).to be false
+      expect(appointment.errors[:date]).to include('conflicts with an existing appointment for this support worker')
+    end
+
+    it 're-raises StatementInvalid errors unrelated to the overlap constraint' do
+      appointment = build(:appointment)
+      allow(appointment).to receive(:valid?).and_return(true)
+      allow(appointment).to receive(:create_or_update).and_raise(
+        ActiveRecord::StatementInvalid.new('PG::NotNullViolation: something else')
+      )
+
+      expect { appointment.save }.to raise_error(ActiveRecord::StatementInvalid)
+    end
+  end
+
   describe 'associations' do
     it 'belongs to a client' do
       expect(Appointment.reflect_on_association(:client).macro).to eq(:belongs_to)

@@ -229,6 +229,15 @@ RSpec.describe "VettingController", type: :request do
         body = JSON.parse(response.body)
         expect(body['reply']).not_to include('[VETTING_COMPLETE]')
       end
+
+      it 'enqueues the vetting email rather than sending inline on completion' do
+        anthropic_client = double
+        allow(Anthropic::Client).to receive(:new).and_return(anthropic_client)
+        allow(anthropic_client).to receive(:messages).and_return(complete_reply, extracted_data)
+        expect {
+          post '/api/vetting/chat', params: { message: 'WWC7654321 expires June 2027', history: [] }
+        }.to have_enqueued_mail(VettingMailer, :application_received)
+      end
     end
   end
 end
