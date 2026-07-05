@@ -101,6 +101,68 @@ RSpec.describe "AiBookingController", type: :request do
         expect(body['tool_calls'].first['name']).to eq('get_support_workers')
       end
 
+      it 'stops after a bounded number of tool-calling iterations instead of looping forever' do
+        call_count = 0
+        # A finite guard rail so a real regression fails fast with a clear error
+        # instead of hanging the test suite on a genuinely infinite loop.
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do
+          call_count += 1
+          raise "runaway loop: called Claude #{call_count} times with no cap enforced" if call_count > 20
+          tool_use_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        expect(response).to have_http_status(:ok)
+        expect(call_count).to be <= 6
+        expect(JSON.parse(response.body)['message']).to be_present
+      end
+
+      it 'does not open a conversation when Claude supplies a person_id that does not exist' do
+        bogus_id_response = {
+          'content' => [{
+            'type' => 'tool_use',
+            'id' => 'toolu_999',
+            'name' => 'open_conversation',
+            'input' => { 'person_id' => 999_999 }
+          }],
+          'stop_reason' => 'tool_use'
+        }
+        allow_any_instance_of(Anthropic::Client).to receive(:messages)
+          .and_return(bogus_id_response, final_text_response)
+
+        expect {
+          post '/api/ai_booking/chat', params: messages_params
+        }.not_to change(Conversation, :count)
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['conversation_id']).to be_nil
+      end
+
+      it 'tells the model the tool call failed, rather than falsely reporting success' do
+        bogus_id_response = {
+          'content' => [{
+            'type' => 'tool_use',
+            'id' => 'toolu_999',
+            'name' => 'open_conversation',
+            'input' => { 'person_id' => 999_999 }
+          }],
+          'stop_reason' => 'tool_use'
+        }
+        second_call_messages = nil
+        call_count = 0
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do |_, parameters:|
+          call_count += 1
+          second_call_messages = parameters[:messages] if call_count == 2
+          call_count == 1 ? bogus_id_response : final_text_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        tool_result = second_call_messages.last[:content].first
+        result_payload = JSON.parse(tool_result[:content])
+        expect(result_payload['success']).to eq(false)
+      end
+
       it 'opens a conversation when Claude calls open_conversation' do
         open_conv_response = {
           'content' => [{

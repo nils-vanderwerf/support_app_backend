@@ -1,5 +1,10 @@
 module Api
   class AiBookingController < ApplicationController
+    # Hard cap on tool-calling turns per request — without this, a model that keeps
+    # calling tools instead of answering would loop indefinitely, burning API calls
+    # until the request times out at the infra level.
+    MAX_TOOL_ITERATIONS = 6
+
     def chat
       return render json: { error: 'Must be logged in' }, status: :unauthorized unless current_user
 
@@ -15,7 +20,7 @@ module Api
       all_tool_calls   = []
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
 
-      loop do
+      MAX_TOOL_ITERATIONS.times do
         response = anthropic.messages(parameters: {
           model:      'claude-sonnet-4-6',
           max_tokens: 1024,
@@ -38,6 +43,12 @@ module Api
           return render json: { message: text, conversation_id: @conversation_id, tool_calls: all_tool_calls }
         end
       end
+
+      render json: {
+        message: "I'm having trouble completing that right now — could you try rephrasing, or a support coordinator can help directly.",
+        conversation_id: @conversation_id,
+        tool_calls: all_tool_calls
+      }
     end
 
     private
@@ -210,8 +221,9 @@ module Api
         client_id: client_id,
         support_worker_id: support_worker_id
       )
-      @conversation_id = conversation.id
+      return { success: false, error: "Could not open a conversation for id #{person_id} — it doesn't match a real record." } unless conversation.persisted?
 
+      @conversation_id = conversation.id
       { success: true, conversation_id: conversation.id }
     end
   end
