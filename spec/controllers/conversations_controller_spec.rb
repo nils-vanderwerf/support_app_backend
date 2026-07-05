@@ -107,6 +107,24 @@ RSpec.describe 'ConversationsController', type: :request do
         expect(captured_system_prompt).to include('do NOT calculate the date yourself')
       end
     end
+
+    it 'instructs the model to prefer the last confirmed date over one mentioned only in a complaint' do
+      conversation_with_message
+
+      captured_system_prompt = nil
+      fake_client = instance_double(Anthropic::Client)
+      allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+      allow(fake_client).to receive(:messages) do |parameters:|
+        captured_system_prompt = parameters[:system]
+        { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
+      end
+
+      get suggest_booking_api_conversation_path(conversation_with_message), params: { timezone: 'Australia/Sydney' }
+
+      expect(response).to have_http_status(:ok)
+      expect(captured_system_prompt).to include('use the LAST date that was explicitly agreed or confirmed')
+      expect(captured_system_prompt).to include('ignore dates that only appear inside a question, complaint, or error report')
+    end
   end
 
   describe '#build_persona — pending appointment timezone' do

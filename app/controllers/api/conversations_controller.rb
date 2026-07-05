@@ -68,7 +68,7 @@ module Api
       response = anthropic.messages(parameters: {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 200,
-        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{today} (#{today.strftime('%A')}). For any weekday or relative day mentioned ('next Tuesday', 'tomorrow', 'this Thursday', etc.), do NOT calculate the date yourself — look it up in this table of the next 14 days: #{date_lookup}. Do not wrap in markdown.",
+        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{today} (#{today.strftime('%A')}). For any weekday or relative day mentioned ('next Tuesday', 'tomorrow', 'this Thursday', etc.), do NOT calculate the date yourself — look it up in this table of the next 14 days: #{date_lookup}. If the transcript mentions more than one date for the same appointment (e.g. a date was flagged as wrong, questioned, or corrected), use the LAST date that was explicitly agreed or confirmed — ignore dates that only appear inside a question, complaint, or error report (e.g. 'that's showing as Tuesday, that doesn't seem right'). Do not wrap in markdown.",
         messages: [{ role: 'user', content: transcript }],
       })
 
