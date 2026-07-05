@@ -69,6 +69,11 @@ module Api
 
       summary = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '')
       render json: { summary: summary, report_count: reports.count }
+    rescue => e
+      # The AI draft is a convenience, not a dependency — the worker can still write
+      # the summary by hand, so report_count must reach the frontend even on failure.
+      Rails.logger.error("client_progress_reports#create AI generation failed: #{e.class}: #{e.message}")
+      render json: { error: 'ai_unavailable', report_count: reports.count }, status: :service_unavailable
     end
   end
 end
