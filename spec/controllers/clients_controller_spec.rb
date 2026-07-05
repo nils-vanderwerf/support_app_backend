@@ -193,14 +193,109 @@ RSpec.describe "ClientsController", type: :request do
         body = JSON.parse(response.body)
         expect(body.first['appointment']).to include('id' => appointment.id)
       end
+
+      it 'also shows a colleague\'s report for the same client, to support handover' do
+        colleague_user = User.create!(email: 'colleague@test.com', password: 'password123', first_name: 'Carol', last_name: 'Clark')
+        colleague = SupportWorker.create!(user: colleague_user, first_name: 'Carol', last_name: 'Clark',
+                                          email: 'colleague@test.com', phone: '0422222222', location: 'Sydney', status: 'approved')
+        colleague_appointment = Appointment.create!(client: client, support_worker: colleague, date: '2026-04-01', status: 'approved')
+        VisitReport.create!(
+          appointment: colleague_appointment, support_worker_id: colleague.id, client_id: client.id,
+          date: '2026-04-01', activities: 'Colleague handover note'
+        )
+
+        get visit_reports_api_client_path(client)
+        body = JSON.parse(response.body)
+        expect(body.map { |r| r['activities'] }).to include('Assisted with meal prep', 'Colleague handover note')
+        colleague_entry = body.find { |r| r['activities'] == 'Colleague handover note' }
+        expect(colleague_entry['support_worker']).to include('first_name' => 'Carol', 'last_name' => 'Clark')
+      end
     end
 
     context 'when logged in as a pending support worker' do
       before { client; pending_worker; post api_login_path, params: { email: pending_sw_user.email, password: 'password123' } }
 
       it 'returns forbidden' do
+        get progress_reports_api_client_path(client)
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'returns forbidden for visit reports too' do
         get visit_reports_api_client_path(client)
         expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
+  describe "GET /api/clients/:id/progress_reports" do
+    let(:appointment) { Appointment.create!(client: client, support_worker: support_worker, date: '2026-05-01', status: 'approved') }
+    let!(:progress_report) do
+      ProgressReport.create!(
+        client: client, support_worker: support_worker,
+        summary: 'Steady progress on daily living goals.', report_count: 3
+      )
+    end
+
+    context 'when not logged in' do
+      it 'returns forbidden' do
+        get progress_reports_api_client_path(client)
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'when logged in as the client' do
+      before { client; appointment; post api_login_path, params: { email: client_user.email, password: 'password123' } }
+
+      it 'returns all progress reports for the client' do
+        get progress_reports_api_client_path(client)
+        expect(response).to have_http_status(:ok)
+        body = JSON.parse(response.body)
+        expect(body.length).to eq(1)
+        expect(body.first['summary']).to eq('Steady progress on daily living goals.')
+      end
+
+      it 'includes support_worker in the response' do
+        get progress_reports_api_client_path(client)
+        body = JSON.parse(response.body)
+        expect(body.first['support_worker']).to include('first_name' => 'Bob', 'last_name' => 'Brown')
+      end
+    end
+
+    context 'when logged in as an approved support worker without an approved appointment' do
+      let(:other_sw_user) { User.create!(email: 'other_sw@test.com', password: 'password123', first_name: 'Carol', last_name: 'Clark') }
+      let!(:other_worker) { SupportWorker.create!(user: other_sw_user, first_name: 'Carol', last_name: 'Clark', email: 'other_sw@test.com', phone: '0422222222', location: 'Sydney', status: 'approved') }
+
+      before { client; other_worker; post api_login_path, params: { email: other_sw_user.email, password: 'password123' } }
+
+      it 'returns forbidden' do
+        get progress_reports_api_client_path(client)
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'when logged in as an approved support worker with an approved appointment' do
+      before { client; support_worker; appointment; post api_login_path, params: { email: sw_user.email, password: 'password123' } }
+
+      it 'returns progress reports for the client' do
+        get progress_reports_api_client_path(client)
+        expect(response).to have_http_status(:ok)
+        body = JSON.parse(response.body)
+        expect(body.length).to eq(1)
+        expect(body.first['summary']).to eq('Steady progress on daily living goals.')
+      end
+
+      it "also shows a colleague's report for the same client, to support handover" do
+        colleague_user = User.create!(email: 'colleague@test.com', password: 'password123', first_name: 'Carol', last_name: 'Clark')
+        colleague = SupportWorker.create!(user: colleague_user, first_name: 'Carol', last_name: 'Clark',
+                                          email: 'colleague@test.com', phone: '0422222222', location: 'Sydney', status: 'approved')
+        Appointment.create!(client: client, support_worker: colleague, date: '2026-04-01', status: 'approved')
+        ProgressReport.create!(client: client, support_worker: colleague, summary: 'Colleague handover summary.', report_count: 1)
+
+        get progress_reports_api_client_path(client)
+        body = JSON.parse(response.body)
+        expect(body.map { |r| r['summary'] }).to include('Steady progress on daily living goals.', 'Colleague handover summary.')
+        colleague_entry = body.find { |r| r['summary'] == 'Colleague handover summary.' }
+        expect(colleague_entry['support_worker']).to include('first_name' => 'Carol', 'last_name' => 'Clark')
       end
     end
   end

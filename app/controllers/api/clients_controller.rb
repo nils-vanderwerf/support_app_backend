@@ -20,31 +20,36 @@ module Api
       end
     end
 
+    # Every contributing worker's reports for this client are visible to any
+    # party with legitimate access (the client themselves, or a worker with
+    # their own approved appointment) — not just the requester's own, so a
+    # colleague can pick up where another worker left off.
     def visit_reports
       client = Client.find(params[:id])
+      return render json: { error: 'Forbidden' }, status: :forbidden unless client_facing_access?(client)
 
-      if current_user&.client&.id == client.id
-        reports = VisitReport.where(client_id: client.id)
-                             .includes(:appointment, :support_worker)
-                             .order(date: :desc)
-        render json: reports.as_json(
-          include: {
-            appointment: { only: %i[id date location] },
-            support_worker: { only: %i[id first_name last_name] }
-          }
-        )
-      elsif current_user&.support_worker&.status == 'approved'
-        worker = current_user.support_worker
-        unless worker.approved_appointment_with?(client)
-          return render json: { error: 'Forbidden' }, status: :forbidden
-        end
-        reports = VisitReport.where(client_id: client.id, support_worker_id: current_user.support_worker.id)
-                             .includes(:appointment)
-                             .order(date: :desc)
-        render json: reports.as_json(include: { appointment: { only: %i[id date location] } })
-      else
-        render json: { error: 'Forbidden' }, status: :forbidden
-      end
+      reports = VisitReport.where(client_id: client.id)
+                           .includes(:appointment, :support_worker)
+                           .order(date: :desc)
+      render json: reports.as_json(
+        include: {
+          appointment: { only: %i[id date location] },
+          support_worker: { only: %i[id first_name last_name] }
+        }
+      )
+    end
+
+    def progress_reports
+      client = Client.find(params[:id])
+      return render json: { error: 'Forbidden' }, status: :forbidden unless client_facing_access?(client)
+
+      reports = ProgressReport.where(client_id: client.id)
+                              .includes(:support_worker)
+                              .order(created_at: :desc)
+      render json: reports.as_json(
+        only: %i[id summary report_count created_at],
+        include: { support_worker: { only: %i[id first_name last_name] } }
+      )
     end
 
     def update
@@ -58,6 +63,12 @@ module Api
     end
 
     private
+
+    def client_facing_access?(client)
+      worker = current_user&.support_worker
+      current_user&.client&.id == client.id ||
+        (worker&.status == 'approved' && worker.approved_appointment_with?(client))
+    end
 
     def client_params
       params.require(:client).permit(

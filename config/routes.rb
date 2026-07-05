@@ -16,6 +16,7 @@ Rails.application.routes.draw do
     resources :users, only: [:create]
     resources :clients do
       get :visit_reports, on: :member
+      get :progress_reports, on: :member
     end
     resources :appointments do
       collection do
