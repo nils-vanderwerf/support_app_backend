@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe "AdminController", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:admin_user) { User.create!(email: 'admin@test.com', password: 'password123', first_name: 'Admin', last_name: 'User', role: :admin) }
   let(:plain_user)  { User.create!(email: 'plain@test.com', password: 'password123', first_name: 'Jan', last_name: 'Doe') }
 
@@ -64,10 +66,16 @@ RSpec.describe "AdminController", type: :request do
 
     context 'when logged in as admin' do
       before do
+        # Anchor to a safe midweek moment before creating fixtures — the appointments
+        # below are offset by +1/+2 days, which flakily rolled into next week whenever
+        # the suite happened to run on a Saturday or Sunday.
+        travel_to Time.current.beginning_of_week + 2.days
         approved_worker; other_approved_worker; pending_worker
         appointment_with_admin_worker; appointment_with_other_worker
         login_as(admin_user)
       end
+
+      after { travel_back }
 
       it 'scopes all counts to this admin' do
         get '/api/admin/stats'
