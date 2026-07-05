@@ -13,26 +13,14 @@ module Api
       else
         []
       end
-      render json: conversations.as_json(
-        include: {
-          client: {},
-          support_worker: {},
-          messages: { only: %i[id content sender_type sender_id created_at] },
-        }
-      )
+      worker = current_user.support_worker
+      render json: conversations.map { |c| conversation_json(c, worker) }
     end
 
     def show
       conversation = Conversation.includes(:client, :support_worker, :messages).find(params[:id])
       authorize_conversation!(conversation)
-      render json: conversation.as_json(
-        include: {
-          client: {},
-          support_worker: {},
-          messages: { only: %i[id content sender_type sender_id created_at] },
-          appointments: { only: %i[id date duration location notes status initiated_by] },
-        }
-      )
+      render json: conversation_json(conversation, current_user.support_worker, include_appointments: true)
     end
 
     def create
@@ -236,6 +224,23 @@ module Api
     end
 
     private
+
+    # Only a support worker's own POV needs the client gate — a client viewing
+    # their own conversation always sees their own full record regardless.
+    def conversation_json(conversation, viewing_worker, include_appointments: false)
+      include_opts = {
+        client: {},
+        support_worker: {},
+        messages: { only: %i[id content sender_type sender_id created_at] },
+      }
+      include_opts[:appointments] = { only: %i[id date duration location notes status initiated_by] } if include_appointments
+
+      data = conversation.as_json(include: include_opts)
+      if viewing_worker && conversation.client
+        data['client'] = conversation.client.as_json_for(full: viewing_worker.approved_appointment_with?(conversation.client))
+      end
+      data
+    end
 
     def authorize_conversation!(conversation)
       authorized = current_user.client&.id == conversation.client_id ||

@@ -10,10 +10,10 @@ module Api
       client = Client.find(params[:id])
       worker = current_user&.support_worker
       approved_worker = worker&.status == 'approved'
-      has_confirmed_appointment = Appointment.where(support_worker_id: worker&.id, client_id: client.id).approved.present?
-      if current_user&.client&.id == client.id || (approved_worker && has_confirmed_appointment)
+      has_confirmed_appointment = approved_worker && worker.approved_appointment_with?(client)
+      if current_user&.client&.id == client.id || has_confirmed_appointment
         render json: client.as_json(methods: [:age]).merge(has_approved_appointment: has_confirmed_appointment)
-      elsif approved_worker && !has_confirmed_appointment
+      elsif approved_worker
         render json: client.as_json(only: [:id, :first_name, :last_name, :location, :bio, :health_conditions]).merge(has_approved_appointment: false)
       else
         return render json: { error: 'Forbidden' }, status: :forbidden
@@ -35,7 +35,7 @@ module Api
         )
       elsif current_user&.support_worker&.status == 'approved'
         worker = current_user.support_worker
-        unless Appointment.where(support_worker_id: worker.id, client_id: client.id).approved.exists?
+        unless worker.approved_appointment_with?(client)
           return render json: { error: 'Forbidden' }, status: :forbidden
         end
         reports = VisitReport.where(client_id: client.id, support_worker_id: current_user.support_worker.id)

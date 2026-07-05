@@ -23,6 +23,12 @@ class SupportWorker < ApplicationRecord
     reviews.count
   end
 
+  # Whether an appointment between this worker and the given client has ever been
+  # approved — upcoming or in the past, regardless of the appointment's own date.
+  def approved_appointment_with?(client)
+    appointments.approved.exists?(client_id: client.id)
+  end
+
   def age
     return nil unless date_of_birth
     today = Date.today

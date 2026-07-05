@@ -97,11 +97,13 @@ module Api
         .order(created_at: :desc)
         .limit(3)
 
+      with_client = ->(appt) { appt.as_json.merge('client' => appt.client&.as_json_for(full: worker.approved_appointment_with?(appt.client))) }
+
       {
         role: 'support_worker',
-        upcoming_appointments: upcoming.as_json(include: :client),
-        recent_appointments: recent.as_json(include: :client),
-        today_appointments: today.as_json(include: :client),
+        upcoming_appointments: upcoming.map(&with_client),
+        recent_appointments: recent.map(&with_client),
+        today_appointments: today.map(&with_client),
         hours_this_week: hours_this_week.round(1),
         total_clients: total_clients,
         average_rating: worker.average_rating,

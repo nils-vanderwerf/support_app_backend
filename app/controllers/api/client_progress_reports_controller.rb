@@ -7,7 +7,7 @@ module Api
       return render json: { error: 'Client not found' }, status: :not_found unless client
 
       worker = current_user.support_worker
-      unless Appointment.where(support_worker_id: worker.id, client_id: client.id).approved.exists?
+      unless worker.approved_appointment_with?(client)
         return render json: { error: 'Forbidden' }, status: :forbidden
       end
 
