@@ -598,7 +598,7 @@ elena_visit_data = [
 ]
 elena_past_appts.each_with_index do |appt, i|
   VisitReport.create!(
-    appointment: appt, user_id: olivia.user_id, client_id: elena.id,
+    appointment: appt, support_worker_id: olivia.id, client_id: elena.id,
     date: appt.date, **elena_visit_data[i]
   )
 end
@@ -616,7 +616,7 @@ raj_visit_data = [
 ]
 raj_past_appts.each_with_index do |appt, i|
   VisitReport.create!(
-    appointment: appt, user_id: james.user_id, client_id: raj.id,
+    appointment: appt, support_worker_id: james.id, client_id: raj.id,
     date: appt.date, **raj_visit_data[i]
   )
 end
@@ -634,7 +634,7 @@ amina_visit_data = [
 ]
 amina_past_appts.each_with_index do |appt, i|
   VisitReport.create!(
-    appointment: appt, user_id: priya.user_id, client_id: amina.id,
+    appointment: appt, support_worker_id: priya.id, client_id: amina.id,
     date: appt.date, **amina_visit_data[i]
   )
 end
@@ -655,7 +655,7 @@ sophie_visit_data = [
 ]
 sophie_past_appts.each_with_index do |appt, i|
   VisitReport.create!(
-    appointment: appt, user_id: mei_sw.user_id, client_id: sophie.id,
+    appointment: appt, support_worker_id: mei_sw.id, client_id: sophie.id,
     date: appt.date, **sophie_visit_data[i]
   )
 end
@@ -673,7 +673,7 @@ mai_visit_data = [
 ]
 mai_past_appts.each_with_index do |appt, i|
   VisitReport.create!(
-    appointment: appt, user_id: nathan.user_id, client_id: mai.id,
+    appointment: appt, support_worker_id: nathan.id, client_id: mai.id,
     date: appt.date, **mai_visit_data[i]
   )
 end
@@ -691,7 +691,7 @@ thomas_visit_data = [
 ]
 thomas_past_appts.each_with_index do |appt, i|
   VisitReport.create!(
-    appointment: appt, user_id: olivia.user_id, client_id: thomas.id,
+    appointment: appt, support_worker_id: olivia.id, client_id: thomas.id,
     date: appt.date, **thomas_visit_data[i]
   )
 end
