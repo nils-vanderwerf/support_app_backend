@@ -68,7 +68,28 @@ RSpec.describe 'ConversationsController', type: :request do
   describe 'GET /api/conversations/:id/suggest_booking' do
     before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
 
-    it "resolves 'today' using the timezone param, not the server's default zone" do
+    it 'includes messages from well before the most recent 12 in the transcript sent to the model' do
+      conv = Conversation.create!(client_id: client.id, support_worker_id: support_worker.id)
+      conv.messages.create!(content: 'We just agreed on next Wednesday the 8th at 10am', sender_type: 'support_worker', sender_id: support_worker.id)
+      # Pad with enough follow-up chatter that the agreement above would fall outside a 12-message window
+      15.times { |i| conv.messages.create!(content: "filler message #{i}", sender_type: i.even? ? 'client' : 'support_worker', sender_id: client.id) }
+
+      captured_messages = nil
+      fake_client = instance_double(Anthropic::Client)
+      allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+      allow(fake_client).to receive(:messages) do |parameters:|
+        captured_messages = parameters[:messages]
+        { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
+      end
+
+      get suggest_booking_api_conversation_path(conv)
+
+      expect(response).to have_http_status(:ok)
+      expect(captured_messages.first[:content]).to include('next Wednesday the 8th at 10am')
+    end
+
+    it "resolves 'today' using the requesting client's own account location, not the server's default zone" do
+      client.update!(location: 'Surry Hills NSW, Australia')
       conversation_with_message
       # 2026-06-01 23:00 UTC is already 2026-06-02 09:00 in Sydney (AEST, UTC+10, no DST in June)
       travel_to Time.utc(2026, 6, 1, 23, 0, 0) do
@@ -80,10 +101,30 @@ RSpec.describe 'ConversationsController', type: :request do
           { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
         end
 
-        get suggest_booking_api_conversation_path(conversation_with_message), params: { timezone: 'Australia/Sydney' }
+        get suggest_booking_api_conversation_path(conversation_with_message)
 
         expect(response).to have_http_status(:ok)
         expect(captured_system_prompt).to include('Today is 2026-06-02')
+      end
+    end
+
+    it "uses a Perth-based user's own timezone instead of Sydney's" do
+      client.update!(location: 'Perth WA, Australia')
+      conversation_with_message
+      # 2026-06-01 15:00 UTC is already 2026-06-02 in Sydney (+10) but still 2026-06-01 in Perth (+8, no DST)
+      travel_to Time.utc(2026, 6, 1, 15, 0, 0) do
+        captured_system_prompt = nil
+        fake_client = instance_double(Anthropic::Client)
+        allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+        allow(fake_client).to receive(:messages) do |parameters:|
+          captured_system_prompt = parameters[:system]
+          { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
+        end
+
+        get suggest_booking_api_conversation_path(conversation_with_message)
+
+        expect(response).to have_http_status(:ok)
+        expect(captured_system_prompt).to include('Today is 2026-06-01')
       end
     end
 
@@ -100,7 +141,7 @@ RSpec.describe 'ConversationsController', type: :request do
           { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
         end
 
-        get suggest_booking_api_conversation_path(conversation_with_message), params: { timezone: 'UTC' }
+        get suggest_booking_api_conversation_path(conversation_with_message)
 
         expect(response).to have_http_status(:ok)
         expect(captured_system_prompt).to include('Wednesday=2026-07-08')
@@ -119,11 +160,30 @@ RSpec.describe 'ConversationsController', type: :request do
         { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
       end
 
-      get suggest_booking_api_conversation_path(conversation_with_message), params: { timezone: 'Australia/Sydney' }
+      get suggest_booking_api_conversation_path(conversation_with_message)
 
       expect(response).to have_http_status(:ok)
       expect(captured_system_prompt).to include('use the LAST date that was explicitly agreed or confirmed')
       expect(captured_system_prompt).to include('ignore dates that only appear inside a question, complaint, or error report')
+    end
+  end
+
+  describe '#timezone_for_location' do
+    let(:controller_instance) { Api::ConversationsController.new }
+
+    it 'maps a Perth/WA location to Australia/Perth' do
+      tz = controller_instance.send(:timezone_for_location, 'Perth WA, Australia')
+      expect(tz.tzinfo.name).to eq('Australia/Perth')
+    end
+
+    it 'maps a Sydney/NSW location to Australia/Sydney' do
+      tz = controller_instance.send(:timezone_for_location, 'Surry Hills NSW, Australia')
+      expect(tz.tzinfo.name).to eq('Australia/Sydney')
+    end
+
+    it 'defaults to Australia/Sydney when location is blank' do
+      tz = controller_instance.send(:timezone_for_location, nil)
+      expect(tz.tzinfo.name).to eq('Australia/Sydney')
     end
   end
 
@@ -142,6 +202,19 @@ RSpec.describe 'ConversationsController', type: :request do
 
       expect(persona).to include('Wednesday, Jul 8 at 9:00 AM')
       expect(persona).not_to include('Tuesday, Jul 7')
+    end
+
+    it "describes the same instant differently for a Perth-based person than a Sydney-based one" do
+      # 2026-07-07T23:00:00Z is 9am in Sydney (+10) but 7am in Perth (+8, no DST)
+      pending = Appointment.new(date: Time.utc(2026, 7, 7, 23, 0, 0), duration: 60, location: 'Home')
+      perth_tz = controller_instance.send(:timezone_for_location, 'Perth WA, Australia')
+
+      persona = controller_instance.send(
+        :build_persona, sw, 'support_worker', client_record, [pending], [], perth_tz
+      )
+
+      expect(persona).to include('7:00 AM')
+      expect(persona).not_to include('9:00 AM')
     end
   end
 

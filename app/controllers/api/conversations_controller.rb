@@ -54,13 +54,14 @@ module Api
       conversation = Conversation.includes(:messages).find(params[:id])
       authorize_conversation!(conversation)
 
-      transcript = conversation.messages.order(:created_at).last(12).map do |m|
+      transcript = conversation.messages.order(:created_at).last(40).map do |m|
         "[#{m.sender_type}]: #{decrypt_content(m.content, conversation.id)}"
       end.join("\n")
 
       return render json: {} if transcript.blank?
 
-      tz = ActiveSupport::TimeZone[params[:timezone].to_s] || Time.zone
+      requester = current_user.client || current_user.support_worker
+      tz = timezone_for_location(requester&.location)
       today = Time.now.in_time_zone(tz).to_date
       date_lookup = (0..13).map { |i| d = today + i; "#{d.strftime('%A')}=#{d.iso8601}" }.join(', ')
 
@@ -107,7 +108,7 @@ module Api
         history << { role: 'user', content: '[continue]' }
       end
 
-      tz = ActiveSupport::TimeZone[params[:timezone].to_s] || Time.zone
+      tz = timezone_for_location(current_person&.location)
       persona = build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts, tz)
 
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])

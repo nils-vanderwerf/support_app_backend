@@ -128,7 +128,7 @@ RSpec.describe "AppointmentsController", type: :request do
         before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
 
         it 'sets status to approved' do
-          patch approve_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
+          patch approve_api_appointment_path(pending_appointment)
           expect(response).to have_http_status(:ok)
           expect(pending_appointment.reload.status).to eq('approved')
         end
@@ -138,7 +138,7 @@ RSpec.describe "AppointmentsController", type: :request do
         before { post api_login_path, params: { email: support_worker_user.email, password: 'password123' } }
 
         it 'sets status to approved' do
-          patch approve_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
+          patch approve_api_appointment_path(pending_appointment)
           expect(response).to have_http_status(:ok)
           expect(pending_appointment.reload.status).to eq('approved')
         end
@@ -151,7 +151,7 @@ RSpec.describe "AppointmentsController", type: :request do
       before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
 
       it 'sets status to declined' do
-        patch decline_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
+        patch decline_api_appointment_path(pending_appointment)
         expect(response).to have_http_status(:ok)
         expect(pending_appointment.reload.status).to eq('declined')
       end
@@ -161,13 +161,13 @@ RSpec.describe "AppointmentsController", type: :request do
         let(:pending_appointment) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending', conversation_id: conversation.id) }
 
         it 'posts a generic system message when no skip_message flag is sent' do
-          patch decline_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
+          patch decline_api_appointment_path(pending_appointment)
           expect(conversation.messages.count).to eq(1)
           expect(conversation.messages.last.content).to include('Appointment declined')
         end
 
         it 'skips the generic system message when skip_message is true' do
-          patch decline_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney', skip_message: true }
+          patch decline_api_appointment_path(pending_appointment), params: { skip_message: true }
           expect(conversation.messages.count).to eq(0)
         end
       end
@@ -181,7 +181,7 @@ RSpec.describe "AppointmentsController", type: :request do
 
       it 'declines all specified appointments in one request' do
         patch bulk_decline_api_appointments_path,
-              params: { appointment_ids: [pending1.id, pending2.id], timezone: 'Australia/Sydney' }.to_json,
+              params: { appointment_ids: [pending1.id, pending2.id] }.to_json,
               headers: { 'Content-Type' => 'application/json' }
         expect(response).to have_http_status(:ok)
         expect(JSON.parse(response.body)['declined_count']).to eq(2)
@@ -192,7 +192,7 @@ RSpec.describe "AppointmentsController", type: :request do
       it 'ignores ids that are already declined' do
         already_declined = Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-15 10:00', status: 'declined')
         patch bulk_decline_api_appointments_path,
-              params: { appointment_ids: [pending1.id, already_declined.id], timezone: 'Australia/Sydney' }.to_json,
+              params: { appointment_ids: [pending1.id, already_declined.id] }.to_json,
               headers: { 'Content-Type' => 'application/json' }
         expect(JSON.parse(response.body)['declined_count']).to eq(1)
       end
@@ -206,7 +206,7 @@ RSpec.describe "AppointmentsController", type: :request do
 
       it 'approves all specified appointments in one request' do
         patch bulk_approve_api_appointments_path,
-              params: { appointment_ids: [pending1.id, pending2.id], timezone: 'Australia/Sydney' }.to_json,
+              params: { appointment_ids: [pending1.id, pending2.id] }.to_json,
               headers: { 'Content-Type' => 'application/json' }
         expect(response).to have_http_status(:ok)
         expect(JSON.parse(response.body)['approved_count']).to eq(2)
@@ -217,7 +217,7 @@ RSpec.describe "AppointmentsController", type: :request do
       it 'ignores ids that are already approved' do
         already_approved = Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-15 10:00', status: 'approved')
         patch bulk_approve_api_appointments_path,
-              params: { appointment_ids: [pending1.id, already_approved.id], timezone: 'Australia/Sydney' }.to_json,
+              params: { appointment_ids: [pending1.id, already_approved.id] }.to_json,
               headers: { 'Content-Type' => 'application/json' }
         expect(JSON.parse(response.body)['approved_count']).to eq(1)
       end
@@ -234,13 +234,13 @@ RSpec.describe "AppointmentsController", type: :request do
       end
 
       it 'returns forbidden when a third party tries to approve' do
-        patch approve_api_appointment_path(owned_appointment), params: { timezone: 'Australia/Sydney' }
+        patch approve_api_appointment_path(owned_appointment)
         expect(response).to have_http_status(:forbidden)
         expect(owned_appointment.reload.status).to eq('pending')
       end
 
       it 'returns forbidden when a third party tries to decline' do
-        patch decline_api_appointment_path(owned_appointment), params: { timezone: 'Australia/Sydney' }
+        patch decline_api_appointment_path(owned_appointment)
         expect(response).to have_http_status(:forbidden)
         expect(owned_appointment.reload.status).to eq('pending')
       end
@@ -277,7 +277,7 @@ RSpec.describe "AppointmentsController", type: :request do
 
       it 'returns unauthorized when not logged in' do
         delete api_logout_path
-        patch approve_api_appointment_path(owned_appointment), params: { timezone: 'Australia/Sydney' }
+        patch approve_api_appointment_path(owned_appointment)
         expect(response).to have_http_status(:unauthorized)
       end
     end
