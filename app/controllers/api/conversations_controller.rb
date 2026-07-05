@@ -80,20 +80,23 @@ module Api
       today = Time.now.in_time_zone(tz).to_date
       date_lookup = (0..13).map { |i| d = today + i; "#{d.strftime('%A')}=#{d.iso8601}" }.join(', ')
 
-      anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
-      response = anthropic.messages(parameters: {
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{today} (#{today.strftime('%A')}). For any weekday or relative day mentioned ('next Tuesday', 'tomorrow', 'this Thursday', etc.), do NOT calculate the date yourself — look it up in this table of the next 14 days: #{date_lookup}. If the transcript mentions more than one date for the same appointment (e.g. a date was flagged as wrong, questioned, or corrected), use the LAST date that was explicitly agreed or confirmed — ignore dates that only appear inside a question, complaint, or error report (e.g. 'that's showing as Tuesday, that doesn't seem right'). Do not wrap in markdown.",
-        messages: [{ role: 'user', content: transcript }],
-      })
-
-      text = response['content'].first['text'].strip.gsub(/\A```(?:json)?\n?/, '').gsub(/\n?```\z/, '').strip
-
       begin
+        anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
+        response = anthropic.messages(parameters: {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 200,
+          system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{today} (#{today.strftime('%A')}). For any weekday or relative day mentioned ('next Tuesday', 'tomorrow', 'this Thursday', etc.), do NOT calculate the date yourself — look it up in this table of the next 14 days: #{date_lookup}. If the transcript mentions more than one date for the same appointment (e.g. a date was flagged as wrong, questioned, or corrected), use the LAST date that was explicitly agreed or confirmed — ignore dates that only appear inside a question, complaint, or error report (e.g. 'that's showing as Tuesday, that doesn't seem right'). Do not wrap in markdown.",
+          messages: [{ role: 'user', content: transcript }],
+        })
+
+        text = response['content'].first['text'].strip.gsub(/\A```(?:json)?\n?/, '').gsub(/\n?```\z/, '').strip
         render json: JSON.parse(text)
-      rescue JSON::ParserError
-        render json: {}
+      rescue JSON::ParserError => e
+        Rails.logger.error("suggest_booking: failed to parse model response: #{e.message}")
+        render json: { error: "Couldn't read a suggestion back from the assistant." }
+      rescue => e
+        Rails.logger.error("suggest_booking: #{e.class}: #{e.message}")
+        render json: { error: "Couldn't generate a suggestion from this conversation." }
       end
     end
 

@@ -91,6 +91,32 @@ RSpec.describe 'ConversationsController', type: :request do
       expect(body['location']).to eq('Surry Hills Community Centre')
     end
 
+    it "returns a clear error instead of a silent blank result when the model call itself fails" do
+      conversation_with_message
+      fake_client = instance_double(Anthropic::Client)
+      allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+      allow(fake_client).to receive(:messages).and_raise(Net::ReadTimeout.new('timed out'))
+
+      get suggest_booking_api_conversation_path(conversation_with_message)
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)['error']).to be_present
+    end
+
+    it "returns a clear error instead of a silent blank result when the model response isn't valid JSON" do
+      conversation_with_message
+      fake_client = instance_double(Anthropic::Client)
+      allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+      allow(fake_client).to receive(:messages).and_return(
+        { 'content' => [{ 'type' => 'text', 'text' => 'not json' }] }
+      )
+
+      get suggest_booking_api_conversation_path(conversation_with_message)
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)['error']).to be_present
+    end
+
     it 'includes messages from well before the most recent 12 in the transcript sent to the model' do
       conv = Conversation.create!(client_id: client.id, support_worker_id: support_worker.id)
       conv.messages.create!(content: 'We just agreed on next Wednesday the 8th at 10am', sender_type: 'support_worker', sender_id: support_worker.id)
