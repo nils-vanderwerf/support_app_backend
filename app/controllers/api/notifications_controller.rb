@@ -1,5 +1,7 @@
 module Api
   class NotificationsController < ApplicationController
+    skip_worker_approval_check # counts only, no client PII, and a pending worker can't have appointments anyway
+
     def index
       return render json: { unread_messages: 0, pending_invitations: 0, total: 0 } unless current_user
       if current_user.client

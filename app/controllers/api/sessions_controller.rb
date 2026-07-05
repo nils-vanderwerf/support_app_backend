@@ -1,5 +1,7 @@
 module Api
   class SessionsController < ApplicationController
+    skip_worker_approval_check # login/logout/whoami must work regardless of approval status
+
     def create
       user = User.find_by(email: params[:email])
       return render json: { error: "Invalid email or password" }, status: :unauthorized unless user

@@ -1,5 +1,7 @@
 module Api
   class ReviewsController < ApplicationController
+    skip_worker_approval_check # #index is a public ratings listing, open even to logged-out visitors
+
     def index
       worker = SupportWorker.find(params[:support_worker_id])
       reviews = worker.reviews.includes(:client).order(created_at: :desc)

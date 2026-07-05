@@ -3,12 +3,8 @@ module Api
     def chat
       return render json: { error: 'Must be logged in' }, status: :unauthorized unless current_user
 
-      worker = current_user.support_worker
-      if worker && worker.status != 'approved'
-        return render json: { error: 'Your account is pending approval' }, status: :forbidden
-      end
-
-      profile = current_user.client || worker
+      # WorkerApprovalGate already blocks non-approved workers before this runs.
+      profile = current_user.client || current_user.support_worker
       return render json: { error: 'No profile found' }, status: :forbidden unless profile
 
       is_client = current_user.client.present?

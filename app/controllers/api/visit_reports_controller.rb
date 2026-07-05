@@ -88,13 +88,5 @@ module Api
     rescue JSON::ParserError
       render json: { activities: '', observations: '', follow_up_actions: '' }
     end
-
-    private
-
-    def require_support_worker
-      unless current_user&.support_worker&.status == 'approved'
-        render json: { error: 'Forbidden' }, status: :forbidden
-      end
-    end
   end
 end

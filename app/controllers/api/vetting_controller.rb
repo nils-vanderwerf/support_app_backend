@@ -1,5 +1,7 @@
 module Api
   class VettingController < ApplicationController
+    skip_worker_approval_check # this is literally how a pending/rejected worker gets approved
+
     def chat
       return render json: { error: 'Unauthorized' }, status: :unauthorized unless current_user
       worker = current_user.support_worker

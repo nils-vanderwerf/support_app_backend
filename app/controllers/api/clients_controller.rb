@@ -1,8 +1,8 @@
 module Api
   class ClientsController < ApplicationController
     def index
-      worker = current_user&.support_worker
-      return render json: { error: 'Forbidden' }, status: :forbidden unless worker&.status == 'approved'
+      # WorkerApprovalGate already blocks non-approved workers before this runs.
+      return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.support_worker
       render json: Client.all.as_json(only: [:id, :first_name, :last_name, :location, :health_conditions], methods: [:age])
     end
 

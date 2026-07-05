@@ -70,13 +70,5 @@ module Api
       summary = response['content'].find { |b| b['type'] == 'text' }&.fetch('text', '')
       render json: { summary: summary, report_count: reports.count }
     end
-
-    private
-
-    def require_support_worker
-      unless current_user&.support_worker&.status == 'approved'
-        render json: { error: 'Forbidden' }, status: :forbidden
-      end
-    end
   end
 end

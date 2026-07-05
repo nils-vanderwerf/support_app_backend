@@ -29,13 +29,5 @@ module Api
       report.destroy
       head :no_content
     end
-
-    private
-
-    def require_support_worker
-      unless current_user&.support_worker&.status == 'approved'
-        render json: { error: 'Forbidden' }, status: :forbidden
-      end
-    end
   end
 end

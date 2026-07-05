@@ -1,5 +1,7 @@
 module Api
   class SupportWorkersController < ApplicationController
+    skip_worker_approval_check # workers can always view/edit their own profile while pending
+
     def index
       return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.client || current_user&.admin?
       workers = if current_user&.admin?

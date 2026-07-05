@@ -1,11 +1,14 @@
 module Api
   class AppointmentsController < ApplicationController
+    # #index deliberately returns an empty list (not 403) for a pending/rejected worker —
+    # no client data is exposed either way, and it's an existing, tested contract.
+    skip_worker_approval_check :index
     before_action :require_login, only: [:approve, :decline, :bulk_approve, :bulk_decline, :update, :destroy]
 
     def create
       return render json: { errors: 'Must be logged in to book appointments' }, status: :unauthorized unless current_user
-      approved_worker = current_user.support_worker&.status == 'approved'
-      return render json: { errors: 'Only clients and approved support workers can book appointments' }, status: :forbidden unless current_user.client || approved_worker
+      # WorkerApprovalGate already blocks non-approved workers before this runs.
+      return render json: { errors: 'Only clients and approved support workers can book appointments' }, status: :forbidden unless current_user.client || current_user.support_worker
       @appointment = Appointment.new(appointment_params)
       if @appointment.save
         schedule_reminder(@appointment)

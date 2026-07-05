@@ -1,5 +1,6 @@
 module Api
   class AdminController < ApplicationController
+    skip_worker_approval_check # admins are never gated by their own worker-approval status
     before_action :require_admin
 
     def applications

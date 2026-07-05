@@ -1,5 +1,7 @@
 module Api
   class ApplicationController < ActionController::Base
+    include WorkerApprovalGate
+
     skip_before_action :verify_authenticity_token
 
     # Australia spans multiple timezones (e.g. Perth vs Sydney), so appointment times must be

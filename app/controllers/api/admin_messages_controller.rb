@@ -1,5 +1,6 @@
 module Api
   class AdminMessagesController < ApplicationController
+    skip_worker_approval_check # pending/rejected workers must be able to appeal to admin
     before_action :require_support_worker
 
     def index
@@ -14,14 +15,6 @@ module Api
         content: params[:content]
       )
       render json: msg.as_json(only: %i[id sender content created_at]), status: :created
-    end
-
-    private
-
-    def require_support_worker
-      unless current_user&.support_worker
-        render json: { error: 'Forbidden' }, status: :forbidden
-      end
     end
   end
 end
