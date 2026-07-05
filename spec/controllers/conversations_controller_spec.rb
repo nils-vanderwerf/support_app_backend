@@ -86,6 +86,27 @@ RSpec.describe 'ConversationsController', type: :request do
         expect(captured_system_prompt).to include('Today is 2026-06-02')
       end
     end
+
+    it 'gives the model a lookup table instead of asking it to calculate weekday offsets' do
+      conversation_with_message
+      # 2026-07-05 is a Sunday, so 'next Wednesday' should map to 2026-07-08 — a case that
+      # previously tripped up the model into computing 2026-07-09 (Thursday) by mistake.
+      travel_to Time.utc(2026, 7, 5, 0, 0, 0) do
+        captured_system_prompt = nil
+        fake_client = instance_double(Anthropic::Client)
+        allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+        allow(fake_client).to receive(:messages) do |parameters:|
+          captured_system_prompt = parameters[:system]
+          { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
+        end
+
+        get suggest_booking_api_conversation_path(conversation_with_message), params: { timezone: 'UTC' }
+
+        expect(response).to have_http_status(:ok)
+        expect(captured_system_prompt).to include('Wednesday=2026-07-08')
+        expect(captured_system_prompt).to include('do NOT calculate the date yourself')
+      end
+    end
   end
 
   describe '#build_persona — fit checks' do
