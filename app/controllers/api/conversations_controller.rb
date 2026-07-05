@@ -271,7 +271,7 @@ module Api
       cipher.auth_tag = tag
       cipher.auth_data = ''
 
-      cipher.update(ciphertext) + cipher.final
+      (cipher.update(ciphertext) + cipher.final).force_encoding('UTF-8')
     rescue StandardError
       content
     end

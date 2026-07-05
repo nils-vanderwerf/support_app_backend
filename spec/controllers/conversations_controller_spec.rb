@@ -68,6 +68,26 @@ RSpec.describe 'ConversationsController', type: :request do
   describe 'GET /api/conversations/:id/suggest_booking' do
     before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
 
+    it "doesn't crash building the transcript when a decrypted message contains non-ASCII characters" do
+      conv = Conversation.create!(client_id: client.id, support_worker_id: support_worker.id)
+      encrypted = Api::ConversationsController.new.send(:encrypt_content, 'See you Wednesday the 8th at 10am 😊', conv.id)
+      conv.messages.create!(content: encrypted, sender_type: 'client', sender_id: client.id)
+
+      captured_messages = nil
+      fake_client = instance_double(Anthropic::Client)
+      allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+      allow(fake_client).to receive(:messages) do |parameters:|
+        captured_messages = parameters[:messages]
+        { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
+      end
+
+      get suggest_booking_api_conversation_path(conv)
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)).not_to have_key('error')
+      expect(captured_messages.first[:content]).to include('😊')
+    end
+
     it 'returns the existing pending appointment directly instead of asking the model to re-derive it' do
       client.update!(location: 'Surry Hills NSW, Australia')
       conv = Conversation.create!(client_id: client.id, support_worker_id: support_worker.id)
