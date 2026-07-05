@@ -46,6 +46,12 @@ RSpec.describe Appointment, type: :model do
       overlapping = build(:appointment, client: client, support_worker: other_worker, date: '2026-05-01 10:30', duration: 60)
       expect(overlapping).to be_valid
     end
+
+    it 'allows rebooking the same slot after the original appointment was declined' do
+      create(:appointment, client: client, support_worker: worker, date: '2026-05-01 10:00', duration: 60, status: 'declined')
+      rebooked = build(:appointment, client: client, support_worker: worker, date: '2026-05-01 10:00', duration: 60)
+      expect(rebooked).to be_valid
+    end
   end
 
   describe '#save when the DB exclusion constraint fires' do

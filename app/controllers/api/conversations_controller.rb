@@ -51,8 +51,25 @@ module Api
     end
 
     def suggest_booking
-      conversation = Conversation.includes(:messages).find(params[:id])
+      conversation = Conversation.includes(:messages, :appointments).find(params[:id])
       authorize_conversation!(conversation)
+
+      requester = current_user.client || current_user.support_worker
+      tz = timezone_for_location(requester&.location)
+
+      # If a pending invitation already exists, its stored fields are ground truth — reuse them
+      # directly rather than asking the model to re-derive the same details from a noisy transcript.
+      pending = conversation.appointments.find { |a| a.status == 'pending' }
+      if pending
+        local = pending.date.in_time_zone(tz)
+        return render json: {
+          date: local.to_date.iso8601,
+          time: local.strftime('%H:%M'),
+          duration: pending.duration,
+          location: pending.location,
+          notes: pending.notes,
+        }
+      end
 
       transcript = conversation.messages.order(:created_at).last(40).map do |m|
         "[#{m.sender_type}]: #{decrypt_content(m.content, conversation.id)}"
@@ -60,8 +77,6 @@ module Api
 
       return render json: {} if transcript.blank?
 
-      requester = current_user.client || current_user.support_worker
-      tz = timezone_for_location(requester&.location)
       today = Time.now.in_time_zone(tz).to_date
       date_lookup = (0..13).map { |i| d = today + i; "#{d.strftime('%A')}=#{d.iso8601}" }.join(', ')
 

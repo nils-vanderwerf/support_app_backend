@@ -68,6 +68,29 @@ RSpec.describe 'ConversationsController', type: :request do
   describe 'GET /api/conversations/:id/suggest_booking' do
     before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
 
+    it 'returns the existing pending appointment directly instead of asking the model to re-derive it' do
+      client.update!(location: 'Surry Hills NSW, Australia')
+      conv = Conversation.create!(client_id: client.id, support_worker_id: support_worker.id)
+      conv.messages.create!(content: 'lots of confusing back and forth about a display bug', sender_type: 'client', sender_id: client.id)
+      # 2026-07-07T23:00:00Z is 2026-07-08 09:00 in Sydney (AEST, UTC+10, no DST in July)
+      conv.appointments.create!(
+        client_id: client.id, support_worker_id: support_worker.id, conversation_id: conv.id,
+        date: Time.utc(2026, 7, 7, 23, 0, 0), duration: 60, location: 'Surry Hills Community Centre',
+        notes: 'Weekly session', status: 'pending'
+      )
+
+      expect(Anthropic::Client).not_to receive(:new)
+
+      get suggest_booking_api_conversation_path(conv)
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body['date']).to eq('2026-07-08')
+      expect(body['time']).to eq('09:00')
+      expect(body['duration']).to eq(60)
+      expect(body['location']).to eq('Surry Hills Community Centre')
+    end
+
     it 'includes messages from well before the most recent 12 in the transcript sent to the model' do
       conv = Conversation.create!(client_id: client.id, support_worker_id: support_worker.id)
       conv.messages.create!(content: 'We just agreed on next Wednesday the 8th at 10am', sender_type: 'support_worker', sender_id: support_worker.id)

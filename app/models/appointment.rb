@@ -27,6 +27,7 @@ class Appointment < ApplicationRecord
 
     new_end = date + (duration || 60).minutes
     overlap = Appointment.active.where.not(id: id).where(support_worker_id: support_worker_id)
+                         .where.not(status: 'declined')
                          .any? { |a| date < a.date + (a.duration || 60).minutes && new_end > a.date }
     errors.add(:date, 'conflicts with an existing appointment for this support worker') if overlap
   end
