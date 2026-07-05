@@ -60,11 +60,14 @@ module Api
 
       return render json: {} if transcript.blank?
 
+      tz = ActiveSupport::TimeZone[params[:timezone].to_s] || Time.zone
+      today = Time.now.in_time_zone(tz).to_date
+
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
       response = anthropic.messages(parameters: {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 200,
-        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{Date.today} (#{Date.today.strftime('%A')}). Resolve relative days like 'next Tuesday' or 'tomorrow' to the next upcoming occurrence of that weekday as an absolute YYYY-MM-DD date. After resolving, verify the weekday of your chosen date matches what was mentioned (e.g. if 'Thursday' was mentioned, confirm your date is actually a Thursday). Do not wrap in markdown.",
+        system: "Extract appointment booking details from this conversation transcript. Return ONLY valid JSON with these exact keys (use null for anything not mentioned): {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\", \"duration\": <minutes as integer or null>, \"location\": \"string or null\", \"notes\": \"string or null\"}. Today is #{today} (#{today.strftime('%A')}). Resolve relative days like 'next Tuesday' or 'tomorrow' to the next upcoming occurrence of that weekday as an absolute YYYY-MM-DD date. After resolving, verify the weekday of your chosen date matches what was mentioned (e.g. if 'Thursday' was mentioned, confirm your date is actually a Thursday). Do not wrap in markdown.",
         messages: [{ role: 'user', content: transcript }],
       })
 

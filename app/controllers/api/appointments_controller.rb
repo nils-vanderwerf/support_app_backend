@@ -1,6 +1,6 @@
 module Api
   class AppointmentsController < ApplicationController
-    before_action :require_login, only: [:approve, :decline, :bulk_approve, :update, :destroy]
+    before_action :require_login, only: [:approve, :decline, :bulk_approve, :bulk_decline, :update, :destroy]
 
     def create
       return render json: { errors: 'Must be logged in to book appointments' }, status: :unauthorized unless current_user
@@ -81,8 +81,23 @@ module Api
       appointment = Appointment.find(params[:id])
       return unless authorize_appointment!(appointment)
       appointment.update!(status: 'declined')
-      post_status_message(appointment, 'declined')
+      post_status_message(appointment, 'declined', skip: params[:skip_message])
       render json: appointment.as_json(include: [:client, :support_worker])
+    end
+
+    def bulk_decline
+      ids = Array(params[:appointment_ids])
+      appointments = Appointment.where(id: ids, status: 'pending')
+                                .select { |appt| party_to_appointment?(appt) }
+      ActiveRecord::Base.transaction do
+        appointments.each do |appointment|
+          appointment.update!(status: 'declined')
+          post_status_message(appointment, 'declined', skip: params[:skip_message])
+        end
+      end
+      render json: { declined_count: appointments.count }
+    rescue => e
+      render json: { error: e.message }, status: :unprocessable_entity
     end
     
     def update
@@ -105,8 +120,9 @@ module Api
 
     private
 
-    def post_status_message(appointment, status)
+    def post_status_message(appointment, status, skip: false)
       return unless appointment.conversation_id
+      return if ActiveModel::Type::Boolean.new.cast(skip)
 
       conversation = Conversation.find(appointment.conversation_id)
       actor = current_user.support_worker || current_user.client

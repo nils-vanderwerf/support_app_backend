@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe 'ConversationsController', type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:client_user) { User.create!(email: 'client@test.com', first_name: 'Jane', last_name: 'Doe', password: 'password123') }
   let(:client) { Client.create!(user_id: client_user.id, first_name: client_user.first_name, last_name: client_user.last_name) }
   let(:sw_user) { User.create!(email: 'worker@test.com', password: 'password123', first_name: 'Bob', last_name: 'Brown', role: 'support_worker') }
@@ -61,6 +63,29 @@ RSpec.describe 'ConversationsController', type: :request do
       end
     end
 
+  end
+
+  describe 'GET /api/conversations/:id/suggest_booking' do
+    before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
+
+    it "resolves 'today' using the timezone param, not the server's default zone" do
+      conversation_with_message
+      # 2026-06-01 23:00 UTC is already 2026-06-02 09:00 in Sydney (AEST, UTC+10, no DST in June)
+      travel_to Time.utc(2026, 6, 1, 23, 0, 0) do
+        captured_system_prompt = nil
+        fake_client = instance_double(Anthropic::Client)
+        allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+        allow(fake_client).to receive(:messages) do |parameters:|
+          captured_system_prompt = parameters[:system]
+          { 'content' => [{ 'type' => 'text', 'text' => '{}' }] }
+        end
+
+        get suggest_booking_api_conversation_path(conversation_with_message), params: { timezone: 'Australia/Sydney' }
+
+        expect(response).to have_http_status(:ok)
+        expect(captured_system_prompt).to include('Today is 2026-06-02')
+      end
+    end
   end
 
   describe '#build_persona — fit checks' do

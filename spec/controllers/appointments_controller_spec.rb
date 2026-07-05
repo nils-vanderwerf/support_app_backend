@@ -155,6 +155,47 @@ RSpec.describe "AppointmentsController", type: :request do
         expect(response).to have_http_status(:ok)
         expect(pending_appointment.reload.status).to eq('declined')
       end
+
+      context 'with an associated conversation' do
+        let(:conversation) { Conversation.create!(client_id: client.id, support_worker_id: support_worker.id) }
+        let(:pending_appointment) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending', conversation_id: conversation.id) }
+
+        it 'posts a generic system message when no skip_message flag is sent' do
+          patch decline_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney' }
+          expect(conversation.messages.count).to eq(1)
+          expect(conversation.messages.last.content).to include('Appointment declined')
+        end
+
+        it 'skips the generic system message when skip_message is true' do
+          patch decline_api_appointment_path(pending_appointment), params: { timezone: 'Australia/Sydney', skip_message: true }
+          expect(conversation.messages.count).to eq(0)
+        end
+      end
+    end
+
+    describe "PATCH /api/appointments/bulk_decline" do
+      let!(:pending1) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-01 10:00', status: 'pending') }
+      let!(:pending2) { Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-08 10:00', status: 'pending') }
+
+      before { post api_login_path, params: { email: client_user.email, password: 'password123' } }
+
+      it 'declines all specified appointments in one request' do
+        patch bulk_decline_api_appointments_path,
+              params: { appointment_ids: [pending1.id, pending2.id], timezone: 'Australia/Sydney' }.to_json,
+              headers: { 'Content-Type' => 'application/json' }
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['declined_count']).to eq(2)
+        expect(pending1.reload.status).to eq('declined')
+        expect(pending2.reload.status).to eq('declined')
+      end
+
+      it 'ignores ids that are already declined' do
+        already_declined = Appointment.create!(client_id: client.id, support_worker_id: support_worker.id, date: '2026-06-15 10:00', status: 'declined')
+        patch bulk_decline_api_appointments_path,
+              params: { appointment_ids: [pending1.id, already_declined.id], timezone: 'Australia/Sydney' }.to_json,
+              headers: { 'Content-Type' => 'application/json' }
+        expect(JSON.parse(response.body)['declined_count']).to eq(1)
+      end
     end
 
     describe "PATCH /api/appointments/bulk_approve" do
@@ -222,6 +263,15 @@ RSpec.describe "AppointmentsController", type: :request do
               headers: { 'Content-Type' => 'application/json' }
         expect(response).to have_http_status(:ok)
         expect(JSON.parse(response.body)['approved_count']).to eq(0)
+        expect(owned_appointment.reload.status).to eq('pending')
+      end
+
+      it 'silently ignores appointments the user does not own in bulk_decline' do
+        patch bulk_decline_api_appointments_path,
+              params: { appointment_ids: [owned_appointment.id] }.to_json,
+              headers: { 'Content-Type' => 'application/json' }
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)['declined_count']).to eq(0)
         expect(owned_appointment.reload.status).to eq('pending')
       end
 
