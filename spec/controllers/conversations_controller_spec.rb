@@ -109,6 +109,24 @@ RSpec.describe 'ConversationsController', type: :request do
     end
   end
 
+  describe '#build_persona — pending appointment timezone' do
+    let(:controller_instance) { Api::ConversationsController.new }
+    let(:sw)     { SupportWorker.new(first_name: 'Olivia', last_name: 'Williams', location: 'Surry Hills, Sydney') }
+    let(:client_record) { Client.new(first_name: 'Elena', last_name: 'Martinez', location: 'Surry Hills, Sydney') }
+
+    it "describes the pending appointment in the client's local timezone, not raw UTC" do
+      # 2026-07-07T23:00:00Z is 2026-07-08 09:00 in Sydney (AEST, UTC+10, no DST in July)
+      pending = Appointment.new(date: Time.utc(2026, 7, 7, 23, 0, 0), duration: 60, location: 'Home')
+
+      persona = controller_instance.send(
+        :build_persona, sw, 'support_worker', client_record, [pending], [], ActiveSupport::TimeZone['Australia/Sydney']
+      )
+
+      expect(persona).to include('Wednesday, Jul 8 at 9:00 AM')
+      expect(persona).not_to include('Tuesday, Jul 7')
+    end
+  end
+
   describe '#build_persona — fit checks' do
     let(:controller_instance) { Api::ConversationsController.new }
 

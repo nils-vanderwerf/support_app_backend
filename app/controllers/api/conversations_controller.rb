@@ -107,7 +107,8 @@ module Api
         history << { role: 'user', content: '[continue]' }
       end
 
-      persona = build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts)
+      tz = ActiveSupport::TimeZone[params[:timezone].to_s] || Time.zone
+      persona = build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts, tz)
 
       anthropic = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
       response = anthropic.messages(parameters: {
@@ -293,11 +294,11 @@ module Api
       { count: reports.size, text: lines }
     end
 
-    def build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts = [])
+    def build_persona(simulated_person, simulated_role, current_person, pending_appts, approved_appts = [], tz = Time.zone)
       name = "#{simulated_person.first_name} #{simulated_person.last_name}"
       other_name = current_person.first_name
 
-      today = Date.today.strftime('%A, %-d %B %Y')
+      today = Time.now.in_time_zone(tz).to_date.strftime('%A, %-d %B %Y')
 
       invitation_instructions = <<~INV
         Today is #{today}.
@@ -393,7 +394,7 @@ module Api
 
       if pending_appts.any?
         appt_list = pending_appts.map do |a|
-          label = Time.parse(a.date.to_s).strftime('%A, %b %-d at %-I:%M %p') rescue a.date.to_s
+          label = a.date.in_time_zone(tz).strftime('%A, %b %-d at %-I:%M %p') rescue a.date.to_s
           "- #{label} (#{a.duration} min, #{a.location})"
         end.join("\n")
 
