@@ -163,6 +163,15 @@ RSpec.describe "AiBookingController", type: :request do
         expect(result_payload['success']).to eq(false)
       end
 
+      it 'returns a clear ai_unavailable error instead of an unhandled 500 when Claude is unreachable' do
+        allow_any_instance_of(Anthropic::Client).to receive(:messages).and_raise(StandardError.new('connection failed'))
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        expect(response).to have_http_status(:service_unavailable)
+        expect(JSON.parse(response.body)['error']).to eq('ai_unavailable')
+      end
+
       it 'opens a conversation when Claude calls open_conversation' do
         open_conv_response = {
           'content' => [{

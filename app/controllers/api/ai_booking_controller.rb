@@ -49,6 +49,9 @@ module Api
         conversation_id: @conversation_id,
         tool_calls: all_tool_calls
       }
+    rescue => e
+      Rails.logger.error("ai_booking#chat failed: #{e.class}: #{e.message}")
+      render json: { error: 'ai_unavailable' }, status: :service_unavailable
     end
 
     private
