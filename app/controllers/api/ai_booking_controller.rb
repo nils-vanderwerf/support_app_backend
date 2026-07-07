@@ -212,7 +212,8 @@ module Api
       end
       clients.map do |c|
         { id: c.id, name: "#{c.first_name} #{c.last_name}", location: c.location,
-          health_conditions: c.health_conditions }
+          bio: c.bio, health_conditions: c.health_conditions,
+          medication: c.medication, allergies: c.allergies }
       end
     end
 

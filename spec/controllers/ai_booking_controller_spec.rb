@@ -69,6 +69,28 @@ RSpec.describe "AiBookingController", type: :request do
         post '/api/ai_booking/chat', params: messages_params
         expect(JSON.parse(response.body)['tool_calls']).to eq([])
       end
+
+      it 'includes bio, medication and allergies in get_clients results, regardless of any appointment' do
+        client.update!(bio: 'Loves gardening', medication: 'Metformin', allergies: 'Peanuts')
+        get_clients_response = {
+          'content' => [{ 'type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'get_clients', 'input' => {} }],
+          'stop_reason' => 'tool_use'
+        }
+        second_call_messages = nil
+        call_count = 0
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do |_, parameters:|
+          call_count += 1
+          second_call_messages = parameters[:messages] if call_count == 2
+          call_count == 1 ? get_clients_response : final_text_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        tool_result = second_call_messages.last[:content].first
+        results = JSON.parse(tool_result[:content])
+        entry = results.find { |r| r['id'] == client.id }
+        expect(entry).to include('bio' => 'Loves gardening', 'medication' => 'Metformin', 'allergies' => 'Peanuts')
+      end
     end
 
     context 'when a client is logged in' do

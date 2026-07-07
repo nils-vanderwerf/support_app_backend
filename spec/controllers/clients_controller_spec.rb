@@ -40,8 +40,8 @@ RSpec.describe "ClientsController", type: :request do
       it 'returns only safe fields' do
         get api_clients_path
         json = JSON.parse(response.body).first
-        expect(json.keys).to match_array(%w[id first_name last_name age location health_conditions])
-        expect(json.keys).not_to include('phone', 'email', 'medication', 'allergies')
+        expect(json.keys).to match_array(%w[id first_name last_name age location health_conditions bio medication allergies])
+        expect(json.keys).not_to include('phone', 'email')
       end
     end
 
@@ -86,8 +86,8 @@ RSpec.describe "ClientsController", type: :request do
         get api_client_path(client)
         expect(response).to have_http_status(:ok)
         json = JSON.parse(response.body)
-        expect(json.keys).to match_array(%w[id first_name health_conditions last_name location bio has_approved_appointment])
-        expect(json.keys).not_to include('phone', 'email', 'medication', 'allergies')
+        expect(json.keys).to match_array(%w[id first_name health_conditions last_name location bio medication allergies age has_approved_appointment])
+        expect(json.keys).not_to include('phone', 'email')
       end
 
       it 'returns has_approved_appointment: false' do

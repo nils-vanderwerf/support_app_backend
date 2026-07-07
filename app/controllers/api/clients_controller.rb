@@ -3,7 +3,7 @@ module Api
     def index
       # WorkerApprovalGate already blocks non-approved workers before this runs.
       return render json: { error: 'Forbidden' }, status: :forbidden unless current_user&.support_worker
-      render json: Client.all.as_json(only: [:id, :first_name, :last_name, :location, :health_conditions], methods: [:age])
+      render json: Client.all.as_json(only: Client::PUBLIC_ATTRIBUTES, methods: [:age])
     end
 
     def show
@@ -14,7 +14,7 @@ module Api
       if current_user&.client&.id == client.id || has_confirmed_appointment
         render json: client.as_json(methods: [:age]).merge(has_approved_appointment: has_confirmed_appointment)
       elsif approved_worker
-        render json: client.as_json(only: [:id, :first_name, :last_name, :location, :bio, :health_conditions]).merge(has_approved_appointment: false)
+        render json: client.as_json_for(full: false).merge(has_approved_appointment: false)
       else
         return render json: { error: 'Forbidden' }, status: :forbidden
       end
