@@ -145,6 +145,16 @@ Messages are AES-256-GCM encrypted with a key derived via HKDF-SHA256, and the f
 - RSpec request specs with context blocks
 - Agentic AI patterns — tool use, multi-step loops, and prompt engineering with the Claude API
 
+## TDD in practice
+
+A few concrete examples of red-green-refactor from this codebase's history, not just the claim that it happened:
+
+**Catching a false-success bug in the AI booking tool loop.** `run_open_conversation` called `Conversation.find_or_create_by` and unconditionally returned `{ success: true, ... }` — even when the record failed validation (e.g. a model-supplied `person_id` that didn't match a real client/worker) and was never actually persisted. The test was written first: stub Claude returning a `person_id` for a record that doesn't exist, then assert the tool result the model receives on its next turn has `"success" => false`. Run against the unfixed code, it failed — `expected false, got true` — proving the bug existed before touching the implementation. Adding one `return ... unless conversation.persisted?` line turned it green. See `spec/controllers/ai_booking_controller_spec.rb`, `"tells the model the tool call failed, rather than falsely reporting success"`.
+
+**Bounding a runaway loop without letting a real infinite loop hang the test suite.** The booking agent's tool-calling `loop do...end` had no iteration cap. Testing "does this loop forever" naively would mean the test itself never finishes. Instead, the stub is a *poison pill*: it returns a tool-use response indefinitely but raises after 20 calls with a message explaining why (`"runaway loop: called Claude N times with no cap enforced"`). Against the original code this failed fast (~0.8s) with that exact error, proving there was no cap — a clean, quick red instead of a hung CI job. After adding `MAX_TOOL_ITERATIONS = 6`, the same test passes, asserting the call count never exceeds it. See the same spec file, `"stops after a bounded number of tool-calling iterations instead of looping forever"`.
+
+**Locking in a deliberately new access rule before writing the implementation.** When visit/progress reports were widened so a colleague could see another worker's notes for a shared client (to support handover), the test came first: create a second support worker with their own approved appointment and their own report for the client, then assert the *original* logged-in worker's request includes the colleague's report too. Against the pre-widening code (which scoped reports to `support_worker_id: current_user.support_worker.id`) this failed — the colleague's report was missing from the response — confirming the restriction was real before removing it. See `spec/controllers/clients_controller_spec.rb`, `"also shows a colleague's report for the same client, to support handover"`.
+
 ## Running locally
 
 Create a `.env` file in the project root (already gitignored):
