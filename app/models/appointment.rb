@@ -3,6 +3,7 @@ class Appointment < ApplicationRecord
   belongs_to :support_worker
 
   belongs_to :conversation, optional: true
+  has_one :appointment_note
 
   scope :active, -> { where(deleted_at: nil) }
   scope :approved, -> { active.where(status: 'approved') }

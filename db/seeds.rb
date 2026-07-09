@@ -706,6 +706,41 @@ end
 puts "Visit reports seeded: #{VisitReport.count}"
 
 # ---------------------------------------------------------------------------
+# Appointment Notes
+# (raw in-session notes written by the support worker; the AI draft uses these
+#  instead of hypothetical context when they exist)
+# ---------------------------------------------------------------------------
+
+# Elena's two most recent past appointments with Olivia
+elena_note_appts = elena_past_appts.last(2)
+elena_note_content = [
+  "Community access outing — Surry Hills Farmers Market. Elena was in great spirits this morning. We walked from her home (about 10 mins, gentle pace). She selected fresh produce independently and chatted unprompted with two stall holders — real confidence building. Blood pressure medication seems well-calibrated; no dizziness complaints today. She bumped into a neighbour from her street and had a lovely conversation. Left the market after ~45 mins, Elena said she felt tired but happy. Home safely by 11:45am.",
+  "Weekly support session at the centre. Elena arrived looking a bit tired — rough night's sleep. Focused on lighter tasks: sorting mail, updating her calendar, grocery list prep for the week. She mentioned managing daily tasks more confidently on her own lately. Did a verbal goals check-in — she's happy with her progress. We discussed potentially moving to fortnightly sessions; Elena said she'd think about it. Finished on time, good mood. Duration approx 85 mins.",
+]
+elena_note_appts.each_with_index do |appt, i|
+  AppointmentNote.create!(appointment: appt, support_worker_id: olivia.id, content: elena_note_content[i])
+end
+
+# Both of Raj's past appointments with James
+raj_note_appts = raj_past_appts
+raj_note_content = [
+  "Coffee catch-up at Swan Street Cafe. Raj arrived a few minutes early. Relaxed conversation over about 50 mins. He opened up about feeling disconnected since switching to full remote work — hasn't left the house much in the last fortnight. No clinical flags, just genuine social isolation. Good rapport straight away. He's articulate and self-aware — mentioned he knows what he 'should' be doing but struggles with motivation when alone. I suggested a structured goal-setting conversation next time if he was up for it. He seemed receptive.",
+  "Goal-setting session at Fitzroy Community Hub. Raj came in with energy today — different from last visit. We worked through three concrete goals for the next month: (1) one social outing per week, (2) re-joining his old book group, (3) 20-minute daily walk. He wrote them down himself which I took as a positive sign. Mood noticeably lighter. He brought up the book group on his own — said he used to go weekly pre-COVID and dropped off. I encouraged him to reach out to the organiser this week. Session was 55 mins. Raj said it was useful.",
+]
+raj_note_appts.each_with_index do |appt, i|
+  AppointmentNote.create!(appointment: appt, support_worker_id: james.id, content: raj_note_content[i])
+end
+
+# Amina's most recent past appointment with Priya
+AppointmentNote.create!(
+  appointment: amina_past_appts.last,
+  support_worker_id: priya.id,
+  content: "Post-session review at New Farm Physio Centre. Swelling noticeably reduced compared to last week. Amina completed the modified exercise program at lower intensity without difficulty. She's now doing home exercises consistently — confirmed she's been keeping up the icing and elevation routine. Blood sugar monitoring routine is well-established; she showed me her log, readings have been stable. Discussed upcoming physio appointment and encouraged her to bring the blood sugar log for the GP. Very positive session overall.",
+)
+
+puts "Appointment notes seeded: #{AppointmentNote.count}"
+
+# ---------------------------------------------------------------------------
 # Reviews
 # ---------------------------------------------------------------------------
 

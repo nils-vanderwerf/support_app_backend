@@ -19,6 +19,7 @@ Rails.application.routes.draw do
       get :progress_reports, on: :member
     end
     resources :appointments do
+      resource :note, controller: 'appointment_notes', only: [:show, :create, :update]
       collection do
         get :pending
         get :recently_accepted

@@ -186,5 +186,58 @@ RSpec.describe 'VisitReportsController', type: :request do
       expect(body['activities']).to eq('')
       expect(body['observations']).to eq('')
     end
+
+    context 'when session notes exist for the appointment' do
+      before do
+        AppointmentNote.create!(
+          appointment: appointment,
+          support_worker_id: support_worker.id,
+          content: 'Client completed all exercises. Positive mood. Blood sugar stable.'
+        )
+      end
+
+      it 'passes session notes to Claude instead of generic appointment context' do
+        captured_params = nil
+        fake_client = instance_double(Anthropic::Client)
+        allow(fake_client).to receive(:messages) do |parameters:|
+          captured_params = parameters
+          { 'content' => [{ 'type' => 'text', 'text' => '{"activities":"Exercises","observations":"Positive mood","follow_up_actions":"Continue plan"}' }] }
+        end
+        allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+
+        post '/api/visit_reports/draft', params: { appointment_id: appointment.id }
+        expect(response).to have_http_status(:ok)
+        prompt_content = captured_params[:messages].first[:content]
+        expect(prompt_content).to include('Client completed all exercises')
+        expect(prompt_content).not_to include('Health conditions')
+      end
+
+      it 'returns the structured draft extracted from session notes' do
+        draft_response = { 'content' => [{ 'type' => 'text', 'text' => '{"activities":"Exercises completed","observations":"Positive mood","follow_up_actions":"Continue plan"}' }] }
+        fake_client = instance_double(Anthropic::Client, messages: draft_response)
+        allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+
+        post '/api/visit_reports/draft', params: { appointment_id: appointment.id }
+        body = JSON.parse(response.body)
+        expect(body['activities']).to eq('Exercises completed')
+      end
+    end
+
+    context 'when no session notes exist' do
+      it 'falls back to generic appointment context prompt' do
+        captured_params = nil
+        fake_client = instance_double(Anthropic::Client)
+        allow(fake_client).to receive(:messages) do |parameters:|
+          captured_params = parameters
+          { 'content' => [{ 'type' => 'text', 'text' => '{"activities":"A","observations":"B","follow_up_actions":"C"}' }] }
+        end
+        allow(Anthropic::Client).to receive(:new).and_return(fake_client)
+
+        post '/api/visit_reports/draft', params: { appointment_id: appointment.id }
+        prompt_content = captured_params[:messages].first[:content]
+        expect(prompt_content).to include('Health conditions')
+        expect(prompt_content).not_to include('Session notes')
+      end
+    end
   end
 end

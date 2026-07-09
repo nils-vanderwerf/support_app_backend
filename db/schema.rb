@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_05_130000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_10_120000) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -18,6 +18,16 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_130000) do
     t.datetime "read_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "appointment_notes", force: :cascade do |t|
+    t.integer "appointment_id", null: false
+    t.integer "support_worker_id", null: false
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["appointment_id"], name: "index_appointment_notes_on_appointment_id", unique: true
+    t.index ["support_worker_id"], name: "index_appointment_notes_on_support_worker_id"
   end
 
   create_table "appointments", force: :cascade do |t|
@@ -186,6 +196,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_130000) do
     t.index ["support_worker_id"], name: "index_visit_reports_on_support_worker_id"
   end
 
+  add_foreign_key "appointment_notes", "appointments"
+  add_foreign_key "appointment_notes", "support_workers"
   add_foreign_key "clients", "users"
   add_foreign_key "reviews", "appointments"
   add_foreign_key "reviews", "clients"
