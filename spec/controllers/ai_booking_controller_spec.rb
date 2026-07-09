@@ -105,6 +105,71 @@ RSpec.describe "AiBookingController", type: :request do
         expect(entry).to include('bio' => 'Loves gardening', 'support_needs' => 'Regular check-ins, prefers mornings')
         expect(entry.keys).not_to include('medication', 'allergies')
       end
+
+      it 'excludes clients the worker already has an approved appointment with when new_clients_only is set' do
+        existing_client_user = User.create!(email: 'existing@test.com', password: 'password123', first_name: 'Amy', last_name: 'Existing')
+        existing_client = Client.create!(user: existing_client_user, first_name: 'Amy', last_name: 'Existing')
+        Appointment.create!(client: existing_client, support_worker: support_worker, date: 1.week.ago, status: 'approved')
+
+        new_client_user = User.create!(email: 'newclient@test.com', password: 'password123', first_name: 'Nina', last_name: 'New')
+        new_client = Client.create!(user: new_client_user, first_name: 'Nina', last_name: 'New')
+
+        get_clients_response = {
+          'content' => [{ 'type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'get_clients', 'input' => { 'new_clients_only' => true } }],
+          'stop_reason' => 'tool_use'
+        }
+        second_call_messages = nil
+        call_count = 0
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do |_, parameters:|
+          call_count += 1
+          second_call_messages = parameters[:messages] if call_count == 2
+          call_count == 1 ? get_clients_response : final_text_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        tool_result = second_call_messages.last[:content].first
+        ids = JSON.parse(tool_result[:content]).map { |r| r['id'] }
+        expect(ids).to include(new_client.id)
+        expect(ids).not_to include(existing_client.id)
+      end
+
+      it 'includes existing clients when new_clients_only is not set' do
+        existing_client_user = User.create!(email: 'existing2@test.com', password: 'password123', first_name: 'Amy', last_name: 'Existing')
+        existing_client = Client.create!(user: existing_client_user, first_name: 'Amy', last_name: 'Existing')
+        Appointment.create!(client: existing_client, support_worker: support_worker, date: 1.week.ago, status: 'approved')
+
+        get_clients_response = {
+          'content' => [{ 'type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'get_clients', 'input' => {} }],
+          'stop_reason' => 'tool_use'
+        }
+        second_call_messages = nil
+        call_count = 0
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do |_, parameters:|
+          call_count += 1
+          second_call_messages = parameters[:messages] if call_count == 2
+          call_count == 1 ? get_clients_response : final_text_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        tool_result = second_call_messages.last[:content].first
+        ids = JSON.parse(tool_result[:content]).map { |r| r['id'] }
+        expect(ids).to include(existing_client.id)
+      end
+
+      it 'instructs the model to use new_clients_only when the worker asks for someone they have not worked with' do
+        captured_system_prompt = nil
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do |_, parameters:|
+          captured_system_prompt = parameters[:system]
+          text_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        expect(captured_system_prompt).to include('new_clients_only')
+        expect(captured_system_prompt.downcase).to include('not worked with')
+      end
     end
 
     context 'when a client is logged in' do

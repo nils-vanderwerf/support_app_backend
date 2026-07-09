@@ -122,6 +122,11 @@ module Api
              Only recommend clients whose needs align with what you do.
              If a client's needs fall outside your specialisations, say so directly.
 
+          3. NEW CLIENT REQUESTS — If the worker asks for someone they have not worked with
+             before (e.g. "a new client", "someone I haven't worked with"), call get_clients
+             with new_clients_only: true so anyone you already have an approved appointment
+             with — past or upcoming — is excluded from the results.
+
           Workflow:
           1. Ask what kind of client or care need they are looking for
           2. Call get_clients to find candidates
@@ -169,7 +174,8 @@ module Api
             input_schema: {
               type: 'object',
               properties: {
-                keyword: { type: 'string', description: 'Optional keyword to filter clients by name or health conditions' }
+                keyword: { type: 'string', description: 'Optional keyword to filter clients by name or health conditions' },
+                new_clients_only: { type: 'boolean', description: "Set true when the worker wants someone they haven't worked with before (e.g. \"a new client\", \"someone I haven't worked with\") — excludes clients with an approved appointment with this worker, past or upcoming." }
               }
             }
           },
@@ -182,7 +188,7 @@ module Api
       Rails.logger.debug "AI tool call: #{tool_use['name']} input=#{tool_use['input'].inspect}"
       result = case tool_use['name']
                when 'get_support_workers' then run_get_support_workers(tool_use['input']['keyword'])
-               when 'get_clients'         then run_get_clients(tool_use['input']['keyword'])
+               when 'get_clients'         then run_get_clients(tool_use['input']['keyword'], tool_use['input']['new_clients_only'], profile)
                when 'open_conversation'   then run_open_conversation(tool_use['input']['person_id'], profile, is_client)
                else { error: "Unknown tool: #{tool_use['name']}" }
                end
@@ -205,13 +211,16 @@ module Api
       end
     end
 
-    def run_get_clients(keyword)
+    def run_get_clients(keyword, new_clients_only, worker)
       clients = Client.all
       if keyword.present?
         kw = keyword.downcase
         clients = clients.select do |c|
           ["#{c.first_name} #{c.last_name}", c.health_conditions.to_s].any? { |f| f.downcase.include?(kw) }
         end
+      end
+      if ActiveModel::Type::Boolean.new.cast(new_clients_only)
+        clients = clients.reject { |c| worker.approved_appointment_with?(c) }
       end
       clients.map do |c|
         { id: c.id, name: "#{c.first_name} #{c.last_name}", location: c.location,
