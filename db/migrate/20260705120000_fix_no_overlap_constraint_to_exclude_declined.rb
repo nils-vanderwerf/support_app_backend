@@ -1,7 +1,7 @@
 class FixNoOverlapConstraintToExcludeDeclined < ActiveRecord::Migration[7.1]
   def up
     return unless postgresql?
-
+ 
     execute "ALTER TABLE appointments DROP CONSTRAINT IF EXISTS no_overlapping_appointments"
 
     execute <<~SQL
