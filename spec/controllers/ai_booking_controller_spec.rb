@@ -70,6 +70,19 @@ RSpec.describe "AiBookingController", type: :request do
         expect(JSON.parse(response.body)['tool_calls']).to eq([])
       end
 
+      it 'instructs the model to check support_needs alongside health_conditions, not instead of it' do
+        captured_system_prompt = nil
+        allow_any_instance_of(Anthropic::Client).to receive(:messages) do |_, parameters:|
+          captured_system_prompt = parameters[:system]
+          text_response
+        end
+
+        post '/api/ai_booking/chat', params: messages_params
+
+        expect(captured_system_prompt).to include('support_needs')
+        expect(captured_system_prompt).to include('health_conditions')
+      end
+
       it 'includes bio and support_needs in get_clients results, but not medication or allergies, regardless of any appointment' do
         client.update!(bio: 'Loves gardening', support_needs: 'Regular check-ins, prefers mornings', medication: 'Metformin', allergies: 'Peanuts')
         get_clients_response = {

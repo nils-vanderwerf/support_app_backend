@@ -116,7 +116,10 @@ module Api
              Only surface local or nearby clients unless the worker explicitly asks otherwise.
 
           2. NEEDS FIT — Your specialisations are: #{sw_specialisations}.
-             Only recommend clients whose health conditions or care needs align with what you do.
+             Each client from get_clients includes both support_needs (what kind of help
+             they're looking for, in their own words) and health_conditions. Check both —
+             don't rely on just one, since either can surface a relevant match the other misses.
+             Only recommend clients whose needs align with what you do.
              If a client's needs fall outside your specialisations, say so directly.
 
           Workflow:
