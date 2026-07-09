@@ -70,8 +70,8 @@ RSpec.describe "AiBookingController", type: :request do
         expect(JSON.parse(response.body)['tool_calls']).to eq([])
       end
 
-      it 'includes bio, medication and allergies in get_clients results, regardless of any appointment' do
-        client.update!(bio: 'Loves gardening', medication: 'Metformin', allergies: 'Peanuts')
+      it 'includes bio and support_needs in get_clients results, but not medication or allergies, regardless of any appointment' do
+        client.update!(bio: 'Loves gardening', support_needs: 'Regular check-ins, prefers mornings', medication: 'Metformin', allergies: 'Peanuts')
         get_clients_response = {
           'content' => [{ 'type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'get_clients', 'input' => {} }],
           'stop_reason' => 'tool_use'
@@ -89,7 +89,8 @@ RSpec.describe "AiBookingController", type: :request do
         tool_result = second_call_messages.last[:content].first
         results = JSON.parse(tool_result[:content])
         entry = results.find { |r| r['id'] == client.id }
-        expect(entry).to include('bio' => 'Loves gardening', 'medication' => 'Metformin', 'allergies' => 'Peanuts')
+        expect(entry).to include('bio' => 'Loves gardening', 'support_needs' => 'Regular check-ins, prefers mornings')
+        expect(entry.keys).not_to include('medication', 'allergies')
       end
     end
 

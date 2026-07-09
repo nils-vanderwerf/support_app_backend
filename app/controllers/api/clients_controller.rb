@@ -73,7 +73,7 @@ module Api
     def client_params
       params.require(:client).permit(
         :first_name, :last_name, :middle_name, :date_of_birth, :gender, :phone,
-        :location, :bio, :health_conditions, :medication, :allergies,
+        :location, :bio, :health_conditions, :support_needs, :medication, :allergies,
         :emergency_contact_first_name, :emergency_contact_last_name, :emergency_contact_phone
       )
     end

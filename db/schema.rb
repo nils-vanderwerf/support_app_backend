@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_05_120000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_05_130000) do
   create_table "admin_messages", force: :cascade do |t|
     t.integer "support_worker_id"
     t.string "sender"
@@ -55,6 +55,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_120000) do
     t.string "emergency_contact_first_name"
     t.string "emergency_contact_last_name"
     t.date "date_of_birth"
+    t.text "support_needs"
     t.index ["user_id"], name: "index_clients_on_user_id"
   end
 
